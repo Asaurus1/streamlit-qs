@@ -8,13 +8,13 @@ help:
 # Set up development environment
 develop:
 	pip install -r dev-requirements.txt -r requirements.txt
-	python setup.py develop
+	pip install -e .
 
 .PHONY: install
 # Install in your current Python environment
 install:
 	pip install -r requirements.txt
-	python setup.py install
+	pip install .
 
 .PHONY: test
 # Run unit tests
