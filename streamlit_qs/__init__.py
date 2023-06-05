@@ -20,6 +20,7 @@ from typing import (
 
 import streamlit as st
 from streamlit.elements.number_input import NoValue, Number
+from streamlit.type_util import OptionSequence, ensure_indexable
 from typing_extensions import Literal
 
 
@@ -32,40 +33,51 @@ T = TypeVar("T")
 QS_BLACKLIST_KEYS: List[str] = []
 
 
-def selectbox_qs(label: str, options: Sequence[str], index: int = 0, *, key: str, autoupdate: bool = False, **kwargs) -> str | None:
+def selectbox_qs(
+    label: str, 
+    options: OptionSequence[T], 
+    index: int = 0, 
+    *, 
+    key: str, 
+    autoupdate: bool = False, 
+    unformat_func: Any = str,
+    **kwargs
+) -> T | None:
     """Create a streamlit selectbox which automatically populates itself from the URL query string.
 
     Takes all arguments that st.selectbox takes, but the "key" keyword argument _must_ be provided. Returns the value
     selected by the user.
-
-    Note: For the moment this only works with options that are lists of strings. Converting the results to non-strings,
-    such as ints or floats, is left to the caller.
     """
+    query_index = from_query_args_index(key, options, default=index, unformat_func=unformat_func)
     if autoupdate:
         _wrap_on_change_with_qs_update(key, kwargs)
-    return st.selectbox(label, options, index=from_query_args_index(key, options, default=index), key=key, **kwargs)
+    return st.selectbox(label, options, index=query_index, key=key, **kwargs)
 
 
-def radio_qs(label: str, options: Sequence[str], index:int = 0, *, key: str, autoupdate: bool = False, **kwargs) -> str | None:
+def radio_qs(
+    label: str, 
+    options: OptionSequence[T],
+    index:int = 0, 
+    *, 
+    key: str, 
+    autoupdate: bool = False, 
+    unformat_func: Any = str,
+    **kwargs
+) -> T | None:
     """Create a streamlit radio widget which automatically populates itself from the URL query string.
 
     Takes all arguments that st.radio takes, but the "key" keyword argument _must_ be provided. Returns the value
     selected by the user. "autoupdate" causes that value to also be populated into the URL query string on change.
-
-    Note: For the moment this only works with options that are lists of strings. Converting the results to non-strings,
-    such as ints or floats, is left to the caller.
     """
+    query_index=from_query_args_index(key, options, default=index, unformat_func=unformat_func)
     if autoupdate:
         _wrap_on_change_with_qs_update(key, kwargs)
-    return st.radio(label, options, index=from_query_args_index(key, options, default=index), key=key, **kwargs)
-
-
-_DEFAULT_SENTINEL_STR = "``hNqOh2eI3q47sM0EjxSSULji8oATCnhVbREJtPmxzzrSRIQgouOVvN38zzWs``"
+    return st.radio(label, options, index=query_index, key=key, **kwargs)
 
 
 def multiselect_qs(
     label: str,
-    options: Sequence[T],
+    options: OptionSequence[T],
     default: Sequence[T] | T | None = None,
     *,
     key: str,
@@ -83,30 +95,21 @@ def multiselect_qs(
     "unformat_func" can be used to specify a callable that turns a string value from the query string back into a python
     object. For example, pass `unformat_func=int` to convert query string values to integers.
     """
-    # if default is none, we need to pass an empty list to from_query_args, otherwise a sentinel string value
-    # (since `default` itself is not necessarily a list of strings)
-    maybe_from_query = from_query_args(key, default=[_DEFAULT_SENTINEL_STR], as_list=True)
-
-    # Generate the "default" list of values to be passed to the underlying streamlit call.
-    if maybe_from_query == [_DEFAULT_SENTINEL_STR]:
-        ms_default_subset = default
-        # Note: Any invalid default will get handled by the streamlit function, so we perform no filtering here.
+    if default is None:
+        default_empty: List[T] = []
+        maybe_from_query = from_query_args(key, default=default_empty, as_list=True, unformat_func=unformat_func)
     else:
-        ms_default: List[T] = (
-            cast(List[T], [val for val in maybe_from_query])
-            if unformat_func is str 
-            else [unformat_func(val) for val in maybe_from_query]
+        maybe_from_query = from_query_args(key, default=_ensure_list(default), as_list=True, unformat_func=unformat_func)
+    
+    indexible_options = ensure_indexable(options)
+    ms_default_subset = [item for item in maybe_from_query if item in indexible_options]
+        
+    # discard missing items or throw an exception if we got a value from the query string that is not in the options
+    if not discard_missing and ms_default_subset != maybe_from_query:
+        raise ValueError(
+            "Some query string options were not contained in the available options for multiselect "
+            f'key = "{key}". Missing values: {[item for item in maybe_from_query if item not in indexible_options]}'
         )
-
-        # Filter down to only the items that are present in the set of options
-        ms_default_subset = [item for item in ms_default if item in options]
-
-        # discard missing items or throw an exception if we got a value from the query string that is not in the options
-        if not discard_missing and ms_default_subset != ms_default:
-            raise ValueError(
-                "Some query string options were not contained in the available options for multiselect "
-                f'key = "{key}". Missing values: {[item for item in ms_default if item not in options]}'
-            )
 
     if autoupdate:
         _wrap_on_change_with_qs_update(key, kwargs)
@@ -123,13 +126,7 @@ def checkbox_qs(label: str, default: bool = False, *, key: str, autoupdate: bool
 
     "autoupdate" causes that value to also be populated into the URL query string on change.
     """
-    query_arg = from_query_args(key, default="")
-    if query_arg.lower() in ("1", "true"):
-        query_bool = True
-    elif query_arg.lower() in ("0", "false"):
-        query_bool = False
-    else:
-        query_bool = default
+    query_bool = from_query_args(key, default=default, unformat_func=lambda val: _convert_bool_checkbox(val, default=default))
     if autoupdate:
         _wrap_on_change_with_qs_update(key, kwargs)
     return st.checkbox(label, value=query_bool, key=key, **kwargs)
@@ -192,36 +189,56 @@ def number_input_qs(
     return st.number_input(label, value=query_value, key=key, **kwargs)
 
 
-
 @overload
-def from_query_args(key: str, default: str = "", *, as_list: Literal[False] = False) -> str:
+def from_query_args(key: str, default: str = "", *, as_list: Literal[False] = False, unformat_func: Any = str) -> str:
     ...
 
-
 @overload
-def from_query_args(key: str, default: List[str], *, as_list: Literal[True]) -> List[str]:
+def from_query_args(key: str, default: T, *, as_list: Literal[False] = False, unformat_func: Any) -> T:
     ...
 
+@overload
+def from_query_args(key: str, default: List[str], *, as_list: Literal[True], unformat_func: Any = str) -> List[str]:
+    ...
+    
+@overload
+def from_query_args(key: str, default: List[T], *, as_list: Literal[True], unformat_func: Any) -> List[T]:
+    ...
 
-def from_query_args(key: str, default: str | List[str] = "", *, as_list: bool = False) -> str | List[str]:
+def from_query_args(key, default = "", *, as_list=False, unformat_func: Any = str):
     """Return the value passed to the webpage URL via the query string for the given key.
 
     If the key does not exist in the query string, default is returned.
-    Values are returned as python strings, unless as_list is True. If as_list is True, the values
-    returned are lists of strings.
-    If multiple values are defined for a given key, this code will throw an exception
-    when as_list is False and will return all defined values when as_list is true.
+    Values are returned as a single python object, unless as_list is True. If as_list is True, the values
+    returned are lists of objects. By default all objects are strings. The `unformat_func` argument takes
+    a callable that converts a single `str` to type `T` and can be used to parse serialized data into
+    python objects.
+    
+    If multiple values are defined for a given key, this code will throw an exception when as_list is False 
+    and will return all defined values when as_list is true.
     """
     query_args = st.experimental_get_query_params()
-    value = query_args.get(key, default if as_list else [default])  # type: ignore  # overloads handle this
+    values = query_args.get(key, None)
+    
+    if values is None:
+        # if there's nothing in the query string, give the default
+        out_value = default if as_list else [default]
+    elif unformat_func is str:
+        # Otherwise the list of values from the query string as strings
+        out_value = values  # values is always str and user expects str
+    else:
+        # Or possibly convert them first
+        out_value = [unformat_func(val) for val in values]  # convert str -> T using unformat_func
+
     if as_list:
-        return value
-    elif len(value) > 1:
+        return out_value
+    elif len(out_value) > 1:
         raise ValueError(f"Got multiple values for query string key {key}. Query contents: \n\n {query_args}")
-    return value[0]
+    
+    return out_value[0]
 
 
-def from_query_args_index(key: str, options: Sequence[str], default: int = 0) -> int:
+def from_query_args_index(key: str, options: OptionSequence[T], default: int = 0, unformat_func: Any = str) -> int:
     """Return the index in the sequence "options" of the value given for the key in the URL query string.
 
     If the value is not present in the sequence "options", or if multiple values are provided, returns the default
@@ -229,8 +246,9 @@ def from_query_args_index(key: str, options: Sequence[str], default: int = 0) ->
 
     >>> st.selectbox("my box", [1, 2, 3], stu.from_query_args_index("myoption", [1, 2, 3]))
     """
+    indexible_options = ensure_indexable(options)
     try:
-        return options.index(from_query_args(key, as_list=False))
+        return indexible_options.index(from_query_args(key, as_list=False, unformat_func=unformat_func))
     except ValueError:
         return default
 
@@ -345,7 +363,7 @@ def add_qs_callback(keys: Collection[str], regex: Collection[str | re.Pattern] =
 # Helper Functions -----------------------------------------------------------------------------
 
 def _qs_intersect(keys: Collection[str] | None, regex: Collection[str | re.Pattern]) -> Mapping:
-    """Smol helper function for Query String utilities."""
+    """Get a dictionary containing pairs from st.session_state whose keys match the arguments/patterns."""
     if isinstance(keys, str) or isinstance(regex, str):
         raise ValueError("Arguments to query string functions must be non-str collections, e.g. list, tuple, set ...")
     # Keys are guaranteed to always be strs by SessionStateProxy
@@ -365,7 +383,7 @@ def _qs_intersect(keys: Collection[str] | None, regex: Collection[str | re.Patte
     
 
 def _wrap_on_change_with_qs_update(key: str, kwargs: MutableMapping):
-    """SMOL helper that adds a query string update for the specified key to the on_change arguments of kwargs."""
+    """Mutates kwargs to add a query string update for the specified key to the on_change argument."""
     existing_callback: Callable | None = kwargs.get("on_change", None)
 
     # Use the existing function if there's not one already defined for on_change.
@@ -385,3 +403,22 @@ def _wrap_on_change_with_qs_update(key: str, kwargs: MutableMapping):
 
     # At the end, mutate kwargs
     kwargs["on_change"] = wrapper
+    
+    
+def _convert_bool_checkbox(string_bool: str, default: bool) -> bool:
+    """Convert from string values to boolean values, with a default value if conversion fails."""
+    if string_bool.lower() in ("1", "true"):
+        return True
+    elif string_bool.lower() in ("0", "false"):
+        return False
+    return default
+
+
+def _ensure_list(maybe_list: Sequence[T] | T) -> List[T]:
+    """Convert single values and sequences (except bytes and str) to lists."""
+    if isinstance(maybe_list, list):
+        return maybe_list
+    elif isinstance(maybe_list, (bytes, str)) or not isinstance(maybe_list, Sequence):
+        return cast(List[T], [maybe_list])
+    else:
+        return list(maybe_list)

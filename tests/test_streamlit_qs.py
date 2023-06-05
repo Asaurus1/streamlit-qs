@@ -8,20 +8,38 @@ import streamlit_qs as stu
 
 
 @mock.patch("streamlit.commands.query_params.get_script_run_ctx")
-def test_from_query_args(mock_ctx):
+def test_from_query_args_str(mock_ctx: mock.MagicMock):
     mock_ctx().query_string = "a=1&b=2&c=3&c=4"
+    deflist = ["default"]
     assert stu.from_query_args("a") == "1"
     assert stu.from_query_args("b", "default") == "2"
-    assert stu.from_query_args("c", "default", as_list=True) == ["3", "4"]
+    assert stu.from_query_args("c", deflist, as_list=True) == ["3", "4"]
     assert stu.from_query_args("d", "default") == "default"
-    deflist = ["default"]
     assert stu.from_query_args("e", deflist, as_list=True) is deflist
     with pytest.raises(ValueError):
-        assert stu.from_query_args("c", deflist) != ["3", "4"]
+        assert stu.from_query_args("c", "5") != ["3", "4"]  # type: ignore
+
+
+@mock.patch("streamlit.commands.query_params.get_script_run_ctx")
+def test_from_query_args_nonstr(mock_ctx: mock.MagicMock):
+    mock_ctx().query_string = "a=1&b=2&c=3&c=4"
+    assert stu.from_query_args("a", unformat_func=int) == 1
+    assert stu.from_query_args("b", "default", unformat_func=int) == 2
+    assert stu.from_query_args("c", [5], as_list=True, unformat_func=int) == [3, 4]
+    assert stu.from_query_args("d", 5, unformat_func=int) == 5
 
 
 @mock.patch("streamlit_qs.from_query_args")
-def test_from_query_args_index(mock_from_query_args):
+def test_from_query_args_index_str(mock_from_query_args: mock.MagicMock):
+    mock_from_query_args.return_value = "1"
+    options = ["3", "1", "5"]
+    assert stu.from_query_args_index("a", options) == 1
+    mock_from_query_args.return_value = "10"
+    assert stu.from_query_args_index("b", options, default=99) == 99
+
+
+@mock.patch("streamlit_qs.from_query_args")
+def test_from_query_args_index_nonstr(mock_from_query_args: mock.MagicMock):
     mock_from_query_args.return_value = "1"
     options = ["3", "1", "5"]
     assert stu.from_query_args_index("a", options) == 1
@@ -30,32 +48,38 @@ def test_from_query_args_index(mock_from_query_args):
 
 
 @mock.patch("streamlit_qs.from_query_args_index")
-def test_selectbox_qs(mock_query_args_index):
+def test_selectbox_qs(mock_query_args_index: mock.MagicMock):
     mock_query_args_index.return_value = 1
     assert stu.selectbox_qs("Test", ["a", "b", "c"], key="test") == "b"
-    mock_query_args_index.assert_called_with("test", ["a", "b", "c"], default=0)
+    mock_query_args_index.assert_called_with("test", ["a", "b", "c"], default=0, unformat_func=str)
+    assert stu.selectbox_qs("Test", [1, 2, 3], key="test", unformat_func=int) == 2
+    mock_query_args_index.assert_called_with("test", [1, 2, 3], default=0, unformat_func=int)
 
     assert _test_helper_autoupdate(stu.selectbox_qs, "Test", ["a", "b", "c"], key="test", autoupdate=True) == "b"
 
     with pytest.raises(TypeError):
-        stu.selectbox_qs("Test", [1, 2, 3])  # can't call without key
+        # can't call without key
+        stu.selectbox_qs("Test", [1, 2, 3])  # type: ignore
 
 
 @mock.patch("streamlit_qs.from_query_args_index")
-def test_radio_qs(mock_query_args_index):
+def test_radio_qs(mock_query_args_index: mock.MagicMock):
     mock_query_args_index.return_value = 1
     assert stu.radio_qs("Test", ["a", "b", "c"], key="test") == "b"
-    mock_query_args_index.assert_called_with("test", ["a", "b", "c"], default=0)
+    mock_query_args_index.assert_called_with("test", ["a", "b", "c"], default=0, unformat_func=str)
+    assert stu.radio_qs("Test", [1, 2, 3], key="test", unformat_func=int) == 2
+    mock_query_args_index.assert_called_with("test", [1, 2, 3], default=0, unformat_func=int)
 
     assert _test_helper_autoupdate(stu.radio_qs, "Test", ["a", "b", "c"], key="test", autoupdate=True) == "b"
 
     with pytest.raises(TypeError):
-        stu.radio_qs("Test", [1, 2, 3])  # can't call without key
+        # can't call without key
+        stu.radio_qs("Test", [1, 2, 3])  # type: ignore
 
 
 @mock.patch("streamlit_qs.from_query_args")
 @mock.patch("streamlit.multiselect", wraps=st.multiselect)
-def test_multiselect_qs_strings(mock_ms, mock_from_query_args):
+def test_multiselect_qs_strings(mock_ms: mock.MagicMock, mock_from_query_args: mock.MagicMock):
     options = ["3", "1", "5"]
 
     mock_from_query_args.return_value = ["1"]
@@ -66,75 +90,76 @@ def test_multiselect_qs_strings(mock_ms, mock_from_query_args):
     assert stu.multiselect_qs("Test", options, key="test") == ["1", "5"]
     mock_ms.assert_called_with("Test", options, default=["1", "5"], key="test")
 
-    mock_from_query_args.return_value = [stu._DEFAULT_SENTINEL_STR]
+    mock_from_query_args.return_value = ["1", "3"]
     assert stu.multiselect_qs("Test", options, default=["1", "3"], key="test") == ["1", "3"]
     mock_ms.assert_called_with("Test", options, default=["1", "3"], key="test")
 
-    mock_from_query_args.return_value = [stu._DEFAULT_SENTINEL_STR]
+    mock_from_query_args.return_value = ["3"]
     assert stu.multiselect_qs("Test", options, default="3", key="test") == ["3"]
-    mock_ms.assert_called_with("Test", options, default="3", key="test")
+    mock_ms.assert_called_with("Test", options, default=["3"], key="test")
 
-    mock_from_query_args.return_value = [stu._DEFAULT_SENTINEL_STR]
+    mock_from_query_args.return_value = []
     assert stu.multiselect_qs("Test", options, key="test") == []
-    mock_ms.assert_called_with("Test", options, default=None, key="test")
+    mock_ms.assert_called_with("Test", options, default=[], key="test")
 
-    mock_from_query_args.return_value = [stu._DEFAULT_SENTINEL_STR]
+    mock_from_query_args.return_value = []
     assert _test_helper_autoupdate(stu.multiselect_qs, "Test", options, key="test", autoupdate=True) == []
 
     mock_from_query_args.return_value = ["1", "5", "7"]
     with pytest.raises(ValueError):
         assert stu.multiselect_qs("Test", options, key="test", discard_missing=False) != ["1", "5"]
 
-    mock_from_query_args.return_value = [stu._DEFAULT_SENTINEL_STR]
-    with pytest.raises(StreamlitAPIException):
-        assert stu.multiselect_qs("Test", options, default=["1", "7"], key="test") != ["1", "7"]
-
     with pytest.raises(TypeError):
-        stu.multiselect_qs("Test", [1, 2, 3])  # can't call without key
+        # can't call without key
+        stu.multiselect_qs("Test", [1, 2, 3])  # type: ignore
 
 
 @mock.patch("streamlit_qs.from_query_args")
 @mock.patch("streamlit.multiselect", wraps=st.multiselect)
-def test_multiselect_qs_nonstring(mock_ms, mock_from_query_args):
+def test_multiselect_qs_nonstring(mock_ms: mock.MagicMock, mock_from_query_args: mock.MagicMock):
     options = [1, 3, 5]
 
-    mock_from_query_args.return_value = ["1"]
+    mock_from_query_args.return_value = [1]
     assert stu.multiselect_qs("Test", options, key="test", unformat_func=int) == [1]
     mock_ms.assert_called_with("Test", options, default=[1], key="test")
 
-    mock_from_query_args.return_value = ["1", "22", "333"]
+    mock_from_query_args.return_value = [1, 2, 3]
     assert stu.multiselect_qs("Test", options, key="test", unformat_func=lambda x: len(x)) == [1, 3]
     mock_ms.assert_called_with("Test", options, default=[1, 3], key="test")
 
-    mock_from_query_args.return_value = [stu._DEFAULT_SENTINEL_STR]
+    mock_from_query_args.return_value = [1, 5]
     assert stu.multiselect_qs("Test", options, default=[1, 5], key="test") == [1, 5]
     mock_ms.assert_called_with("Test", options, default=[1, 5], key="test")
 
-    mock_from_query_args.return_value = [stu._DEFAULT_SENTINEL_STR]
+    mock_from_query_args.return_value = []
     assert stu.multiselect_qs("Test", options, key="test") == []
-    mock_ms.assert_called_with("Test", options, default=None, key="test")
+    mock_ms.assert_called_with("Test", options, default=[], key="test")
 
 
 @mock.patch("streamlit_qs.from_query_args")
-def test_checkbox_qs(mock_from_query_args):
+def test_checkbox_qs(mock_from_query_args: mock.MagicMock):
     for val in ("1", "True", "tRue", "TRUE"):
-        mock_from_query_args.return_value = val
+        mock_from_query_args.return_value = stu._convert_bool_checkbox(val, False)
         assert stu.checkbox_qs("Test", key="test") is True
     for val in ("0", "FALSE", "False", "false"):
-        mock_from_query_args.return_value = val
+        mock_from_query_args.return_value = stu._convert_bool_checkbox(val, False)
         assert stu.checkbox_qs("Test", key="test") is False
 
-    mock_from_query_args.return_value = "TROO"
-    assert stu.checkbox_qs("Test", key="test", default=False) is False
+    mock_from_query_args.return_value = stu._convert_bool_checkbox("TROO", True)
     assert stu.checkbox_qs("Test", key="test", default=True) is True
+    mock_from_query_args.return_value = stu._convert_bool_checkbox("TROO", False)
+    assert stu.checkbox_qs("Test", key="test", default=False) is False
+    
+    mock_from_query_args.return_value = False
     assert _test_helper_autoupdate(stu.checkbox_qs, "Test", key="test", autoupdate=True) is False
 
     with pytest.raises(TypeError):
-        stu.selectbox_qs("Test")  # can't call without key
+        # can't call without key
+        stu.selectbox_qs("Test", [1, 2])  # type: ignore
 
 
 @mock.patch("streamlit_qs.from_query_args")
-def test_text_input_qs(mock_from_query_args):
+def test_text_input_qs(mock_from_query_args: mock.MagicMock):
     mock_from_query_args.return_value = "hello"
     assert stu.text_input_qs("Test", default="world", key="test") == "hello"
     mock_from_query_args.assert_called_with("test", default="world")
@@ -145,7 +170,8 @@ def test_text_input_qs(mock_from_query_args):
     with pytest.raises(ValueError):
         stu.text_input_qs("Test", key="a")
     with pytest.raises(TypeError):
-        stu.text_input_qs("Test")  # can't call without key
+        # can't call without key
+        stu.text_input_qs("Test", [1, 2])  # type: ignore
 
 
 @mock.patch("streamlit_qs.from_query_args")
@@ -160,7 +186,8 @@ def test_text_area_qs(mock_from_query_args):
     with pytest.raises(ValueError):
         stu.text_area_qs("Test", key="a")
     with pytest.raises(TypeError):
-        stu.text_area_qs("Test")  # can't call without key
+        # can't call without key
+        stu.text_area_qs("Test")  # type: ignore
 
 
 @mock.patch("streamlit_qs.from_query_args")
@@ -205,7 +232,8 @@ def test_number_input_qs(mock_from_query_args):
     with pytest.raises(StreamlitAPIException, match="must lie between the `min_value`.*and the `max_value"):
         stu.number_input_qs("Test", max_value=1.0, key="test")  # set value outside bounds
     with pytest.raises(TypeError, match="keyword-only"):
-        stu.number_input_qs("Test")  # can't call without key
+        # can't call without key
+        stu.number_input_qs("Test")  # type: ignore
 
 
 def test_qs_intersect():
