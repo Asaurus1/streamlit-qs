@@ -20,6 +20,20 @@ This can let users to share links with others that will populate streamlit with 
 that they were using. Or you can use the query string to pass data into your streamlit application from
 another website or program.
 
+"""
+with st.expander("A note about the experimental API"):
+    st.info(
+        "Query string interaction within Streamlit is currently experimental, "
+        "and the API is subject to change at any time. This library works with "
+        "v1.23.1 of Streamlit but may not be forward compatible with future versions "
+        "when the experimental query string API is either A) removed, B) made standard, "
+        "or C) modified in some incompatible way\n\n"
+        "Please submit an issue if you encounter compatibility issues with future "
+        "versions of Streamlit."
+    )
+    
+"""
+
 ## The Basics
 
 ### Getting Input
