@@ -26,4 +26,4 @@ stqs.text_input_qs("Enter Some Text", key="input_some_text")
 ```
 
 For more examples, including :sparkles:**customization options**:sparkles:, see
-[the demo app](https://stqs.streamlit.app).
+[the demo app](https://query-string.streamlit.app/).
