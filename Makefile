@@ -36,3 +36,8 @@ distribute:
 	rm -rf dist
 	python setup.py sdist
 	twine upload dist/*
+
+.PHONY: example
+# Run an example
+example:
+	python -m streamlit run example.py
