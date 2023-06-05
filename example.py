@@ -1,7 +1,10 @@
+from enum import Enum
 import random
+from textwrap import dedent, shorten, wrap
 import streamlit as st
 import streamlit_qs as stqs
 
+# st.set_page_config(layout="wide")
 
 """
 # Streamlit QueryString
@@ -47,7 +50,7 @@ the qs elements *require* a `key` as a keyword argument.
 with st.echo():
     st.markdown(
         "Click this URL: "
-        "[?input_some_text=Hello+World](?input_some_text=Hello+World)"
+        "[?input_some_text=Hello+World](?input_some_text=Hello+World#the-basics)"
     ) 
     stqs.text_input_qs("Enter Some Text", key="input_some_text")
     
@@ -63,8 +66,7 @@ Multi-select boxes can be filled using multiple key-value pairs with the same ke
 """
 st.markdown("[Click this URL](?multi=Streamlit&multi=QS&multi=Rocks#multi-select)") 
 with st.echo():
-    values = stqs.multiselect_qs(
-        label="Your opinion about this library:", 
+    values = stqs.multiselect_qs("Your opinion about this library:",
         options=["Streamlit", "QS", "Rocks", "I", "Don't", "Know"],
         default=["I", "Don't", "Know"],
         key="multi",
@@ -86,14 +88,12 @@ Qs elements can also auto-fill their new value into the query string when they a
 Turn this on using the `autoupdate` argument:
 """
 with st.echo():
-    stqs.selectbox_qs(
-        "Select an option:", 
+    stqs.selectbox_qs("Select an option:",
         options=["A", "B", "C"], 
         key="auto_select1", 
         autoupdate=True
     )
-    stqs.selectbox_qs(
-        "Select another option:", 
+    stqs.selectbox_qs("Select another option:",
         options=["A", "B", "C"], 
         key="auto_select2", 
         autoupdate=True
@@ -108,8 +108,7 @@ callbacks as well so that they're still usable.
 This example updates the query string AND creates balloons or snow!
 """
 with st.echo():
-    stqs.selectbox_qs(
-        "Select an option:", 
+    stqs.selectbox_qs("Select an option:",
         options=["I love winter", "I like parties"], 
         key="auto_select3", 
         autoupdate=True, 
@@ -144,29 +143,107 @@ with st.echo():
 ""
 ""
 
+
+def mddoc(func):
+    st.markdown(f"#### `{func.__name__}`")
+    st.code(dedent(func.__doc__))
+
+
+
 """
 ## Element Examples
 
-coming soon...
+"""
+mddoc(stqs.text_input_qs)
+st.write("Example:")
+with st.echo():
+    stqs.text_input_qs("My Name", key="name", autoupdate=True)
+st.divider()
+
+mddoc(stqs.text_area_qs)
+st.write("Example:")
+with st.echo():
+    stqs.text_area_qs("Text Area",
+        placeholder="This is a big text area that DOESN'T autoupdate",
+        key="textarea"
+    )
+    st.button("But you can update the query string manually",
+        on_click=stqs.add_qs_callback(["textarea"])
+    )
+st.divider()
+
+mddoc(stqs.selectbox_qs)
+st.write("Example:")
+with st.echo():
+    stqs.selectbox_qs("Options", ["option1", "option2"], key="option", autoupdate=True)
+    stqs.selectbox_qs("Number", [1, 2, 3], key="number", autoupdate=True)
+st.divider()
+
+mddoc(stqs.radio_qs)
+st.write("Example:")
+with st.echo():
+    stqs.radio_qs("Number 2", ["1", "2", "3"], key="number2", autoupdate=True)
+st.divider()
+
+mddoc(stqs.checkbox_qs)
+st.write("Example:")
+with st.echo():
+    stqs.checkbox_qs("Yes", True, key="yes", autoupdate=True)
+st.divider()
+
+mddoc(stqs.multiselect_qs)
+st.write("Example:")
+with st.echo():
+    stqs.multiselect_qs("letter", ["a", "b", "c"], key="letter", default=["c", "a"], autoupdate=True)
+st.write("")
+st.info("Note: format_func does not affect the values in the query string")
+st.write("Example:")
+with st.echo():
+    stqs.multiselect_qs("Format Funcs",
+        ["x", "y", "z"],
+        key="hellonumber",
+        format_func=lambda x: f"Pick: {x}",
+        autoupdate=True,
+    )
+st.write("")
+st.info(
+    "Note: You can use non-string objects as well, and the `unenumifier` function "
+    "helps to convert query string values back into Enums"
+)
+st.write("Example:")
+with st.echo():
+    class AnEnum(Enum):
+        FOO = 0
+        BAR = 1
+
+    stqs.multiselect_qs("Enums",
+        options=[AnEnum.FOO, AnEnum.BAR],
+        key="enum",
+        autoupdate=True,
+        unformat_func = stqs.unenumifier(AnEnum)
+    )
+st.divider()
+
+mddoc(stqs.number_input_qs)
+with st.echo():
+    stqs.number_input_qs("Number 3", key="number3", autoupdate=True)
+st.divider()
+
 
 """
-# stqs.selectbox_qs("Options", ["option1", "option2"], key="option", autoupdate=True)
-# stqs.selectbox_qs("Number", ["1", "2", "3"], key="number", autoupdate=True)
-# stqs.text_input_qs("My Name", key="name", autoupdate=True)
-# stqs.radio_qs("Number 2", ["1", "2", "3"], key="number2", autoupdate=True)
-# stqs.checkbox_qs("Yes", True, key="yes", autoupdate=True)
-# stqs.multiselect_qs("letter", ["a", "b", "c"], key="letter", default=["c", "a"])
-# stqs.multiselect_qs(
-#     "Format Funcs",
-#     ["x", "y", "z"],
-#     key="hellonumber",
-#     format_func=lambda x: f"Pick: {x}",
-#     autoupdate=True,
-# )
-# stqs.number_input_qs("Number 3", key="number3", autoupdate=True)
-# stqs.text_area_qs("Text Area", placeholder="This is a big text area", key="textarea")
+### Query string utils
 
-# # Some UI buttons
-# st.markdown(f"[permalink]({stqs.make_query_string()}) (right click to copy)")
-# st.button("Update URL with parameters", on_click=stqs.update_qs_callback())
-# st.button("Clear URL", on_click=stqs.clear_qs_callback())
+"""
+mddoc(stqs.make_query_string)
+with st.echo():
+    st.markdown(f"[permalink]({stqs.make_query_string()}) (right click to copy)")
+st.divider()
+
+mddoc(stqs.update_qs_callback)
+with st.echo():
+    st.button("Update URL with parameters", on_click=stqs.update_qs_callback())
+st.divider()
+
+mddoc(stqs.clear_qs_callback)
+with st.echo():
+    st.button("Clear URL", on_click=stqs.clear_qs_callback())
