@@ -1,6 +1,5 @@
 from enum import Enum
 import random
-from textwrap import dedent, shorten, wrap
 import streamlit as st
 import streamlit_qs as stqs
 
@@ -52,9 +51,9 @@ with st.echo():
         "Click this URL: "
         "[?input_some_text=Hello+World](?input_some_text=Hello+World#the-basics)"
     ) 
-    stqs.text_input_qs("Enter Some Text", key="input_some_text")
+    text = stqs.text_input_qs("Enter Some Text", key="input_some_text")
     
-if stqs.from_query_args("input_some_text") == "Hello World":
+if text == "Hello World":
     st.success("Nice Job! Notice what happened in your browser's URL bar ☝️☝️☝️")
 
 ""
@@ -144,23 +143,23 @@ with st.echo():
 ""
 
 
-def mddoc(func):
+def show_docstring(func):
     st.markdown(f"#### `{func.__name__}`")
-    st.code(dedent(func.__doc__))
-
+    with st.expander("Docstring"):
+        st.help(func)
 
 
 """
 ## Element Examples
 
 """
-mddoc(stqs.text_input_qs)
+show_docstring(stqs.text_input_qs)
 st.write("Example:")
 with st.echo():
     stqs.text_input_qs("My Name", key="name", autoupdate=True)
 st.divider()
 
-mddoc(stqs.text_area_qs)
+show_docstring(stqs.text_area_qs)
 st.write("Example:")
 with st.echo():
     stqs.text_area_qs("Text Area",
@@ -172,26 +171,26 @@ with st.echo():
     )
 st.divider()
 
-mddoc(stqs.selectbox_qs)
+show_docstring(stqs.selectbox_qs)
 st.write("Example:")
 with st.echo():
     stqs.selectbox_qs("Options", ["option1", "option2"], key="option", autoupdate=True)
     stqs.selectbox_qs("Number", [1, 2, 3], key="number", autoupdate=True)
 st.divider()
 
-mddoc(stqs.radio_qs)
+show_docstring(stqs.radio_qs)
 st.write("Example:")
 with st.echo():
     stqs.radio_qs("Number 2", ["1", "2", "3"], key="number2", autoupdate=True)
 st.divider()
 
-mddoc(stqs.checkbox_qs)
+show_docstring(stqs.checkbox_qs)
 st.write("Example:")
 with st.echo():
     stqs.checkbox_qs("Yes", True, key="yes", autoupdate=True)
 st.divider()
 
-mddoc(stqs.multiselect_qs)
+show_docstring(stqs.multiselect_qs)
 st.write("Example:")
 with st.echo():
     stqs.multiselect_qs("letter", ["a", "b", "c"], key="letter", default=["c", "a"], autoupdate=True)
@@ -224,7 +223,8 @@ with st.echo():
     )
 st.divider()
 
-mddoc(stqs.number_input_qs)
+show_docstring(stqs.number_input_qs)
+st.write("Example:")
 with st.echo():
     stqs.number_input_qs("Number 3", key="number3", autoupdate=True)
 st.divider()
@@ -234,16 +234,19 @@ st.divider()
 ### Query string utils
 
 """
-mddoc(stqs.make_query_string)
+show_docstring(stqs.make_query_string)
+st.write("Example:")
 with st.echo():
     st.markdown(f"[permalink]({stqs.make_query_string()}) (right click to copy)")
 st.divider()
 
-mddoc(stqs.update_qs_callback)
+show_docstring(stqs.update_qs_callback)
+st.write("Example:")
 with st.echo():
     st.button("Update URL with parameters", on_click=stqs.update_qs_callback())
 st.divider()
 
-mddoc(stqs.clear_qs_callback)
+show_docstring(stqs.clear_qs_callback)
+st.write("Example:")
 with st.echo():
     st.button("Clear URL", on_click=stqs.clear_qs_callback())
