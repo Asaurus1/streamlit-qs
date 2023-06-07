@@ -250,3 +250,20 @@ show_docstring(stqs.clear_qs_callback)
 st.write("Example:")
 with st.echo():
     st.button("Clear URL", on_click=stqs.clear_qs_callback())
+st.divider()
+
+show_docstring(stqs.blacklist_key)
+show_docstring(stqs.unblacklist_key)
+st.write("Example:")
+with st.echo():
+    stqs.blacklist_key("stay_invisible")
+    st.session_state.stay_invisible = 0
+    st.session_state.show_in_query_string = 1
+
+    st.button(
+        "Update Query String",
+        on_click=stqs.update_qs_callback(["stay_invisible", "show_in_query_string"])
+    )
+
+    # Query String does NOT contain "stay_invisible"
+    # after calling update_qs

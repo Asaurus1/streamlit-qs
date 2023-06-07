@@ -247,9 +247,11 @@ def test_qs_intersect():
         assert stu._qs_intersect(["a3"], ["b.$"]) == {"a3": 1, "b2": 3, "b3": 2}
 
     new_session_state = {"a3": 1, "blacklisted_key": "blacklisted"}
-    with mock.patch("streamlit.session_state", new=new_session_state), \
-        mock.patch.object(stu, "QS_BLACKLIST_KEYS", new=["blacklisted_key"]):
+    with mock.patch("streamlit.session_state", new=new_session_state):
+        stu.blacklist_key("blacklisted_key")
         assert stu._qs_intersect(None, tuple()) == {"a3": 1}
+        stu.unblacklist_key("blacklisted_key")
+        assert "blacklisted_key" not in stu.QS_BLACKLIST_KEYS
 
     with pytest.raises(ValueError, match="Arguments to query string functions must be non-str collections"):
         stu._qs_intersect("foo", tuple())

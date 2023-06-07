@@ -14,6 +14,7 @@ from typing import (
     Mapping,
     MutableMapping,
     Sequence,
+    Set,
     Type,
     TypeVar,
     cast,
@@ -32,7 +33,20 @@ T = TypeVar("T")
 # A list of query string keys are are not allowed because they are used
 # elsewhere in application backend code. Expected to be set by the user at
 # application initalization
-QS_BLACKLIST_KEYS: List[str] = []
+QS_BLACKLIST_KEYS: Set[str] = set()
+
+
+def blacklist_key(key: str):
+    """Add a key to the list of blacklisted keys that won't show up in the query string."""
+    QS_BLACKLIST_KEYS.add(key)
+
+
+def unblacklist_key(key: str):
+    """Remove a key from the list of blacklisted keys that won't show up in the query string.
+
+    Key is ignored if it isn't already blacklisted.
+    """
+    QS_BLACKLIST_KEYS.discard(key)
 
 
 def selectbox_qs(
