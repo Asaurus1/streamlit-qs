@@ -17,8 +17,12 @@ another website or program.
 
 ## Installation
 
-First install Streamlit (of course!) then pip-install this library:
+First install Streamlit (of course!) then install this library:
 
+```bash
+pip install streamlit-qs
+```
+or
 ```bash
 pip install git+https://github.com/Asaurus1/streamlit-qs.git@main
 ```

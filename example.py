@@ -14,7 +14,7 @@ Streamlit.
 If you want to try this at home, you'll first need to install it:
 
 ```python
-pip install git+https://github.com/Asaurus1/streamlit-qs.git@main
+pip install streamlit-qs
 ```
 
 The functions in this library allow you to easily create "permalink-like" functionality in your application,
