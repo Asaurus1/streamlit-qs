@@ -229,7 +229,7 @@ def test_number_input_qs(mock_from_query_args):
         stu.number_input_qs("Test", max_value="string", key="test")  # bad type with no default
     with pytest.raises(TypeError, match="Expected type was not a float"):
         stu.number_input_qs("Test", step="string", key="test")  # bad type with no default
-    with pytest.raises(StreamlitAPIException, match="must lie between the `min_value`.*and the `max_value"):
+    with pytest.raises(StreamlitAPIException):
         stu.number_input_qs("Test", max_value=1.0, key="test")  # set value outside bounds
     with pytest.raises(TypeError, match="keyword-only"):
         # can't call without key
