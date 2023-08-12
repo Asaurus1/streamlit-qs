@@ -124,8 +124,9 @@ By default the permalink generates a query string pair for every user element on
 even those that aren't qs elements.
 """
 with st.echo():
-    permalink = stqs.make_query_string()
+    permalink = stqs.make_query_string() + "#permalinks"
     st.markdown(f"[permalink everything]({permalink})")
+    st.code(permalink, language="markdown")
 
 ""
 
@@ -135,10 +136,13 @@ to match specific `key` values.
 """
 with st.echo():
     somekeys_link = stqs.make_query_string(keys=['multi'])
-    st.markdown(f"[only some keys]({somekeys_link})")
+    st.markdown(f"[only some keys 💃]({somekeys_link})")
+    st.code(somekeys_link, language="markdown")
     
     regex_link = stqs.make_query_string(regex=['auto.*'])
-    st.markdown(f"[regular expressions :D]({regex_link})")
+    st.markdown(f"[regular expressions 🤔]({regex_link})")
+    st.code(regex_link, language="markdown")
+
 ""
 ""
 
@@ -265,5 +269,4 @@ with st.echo():
         on_click=stqs.update_qs_callback(["stay_invisible", "show_in_query_string"])
     )
 
-    # Query String does NOT contain "stay_invisible"
-    # after calling update_qs
+    # Query String does NOT contain "stay_invisible" after the button is clicked.

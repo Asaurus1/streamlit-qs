@@ -1,4 +1,4 @@
-"""Query string extensions for Streamlit"""
+"""Query string extensions for Streamlit."""
 from __future__ import annotations
 from enum import Enum
 
@@ -26,14 +26,14 @@ from streamlit.elements.number_input import NoValue, Number
 from streamlit.type_util import OptionSequence, ensure_indexable
 from typing_extensions import Literal
 
-
+# TypeVars
 T = TypeVar("T")
+Tenum = TypeVar("Tenum", bound=Enum)
+Tbs = TypeVar("Tbs", bytes, str)
 
-
-# A list of query string keys are are not allowed because they are used
-# elsewhere in application backend code. Expected to be set by the user at
-# application initalization
 QS_BLACKLIST_KEYS: Set[str] = set()
+"""A list of query string keys are are not allowed because they are used elsewhere in application
+backend code. Expected to be set by the user at application initalization."""
 
 
 def blacklist_key(key: str):
@@ -59,8 +59,7 @@ def selectbox_qs(
     unformat_func: Any = str,
     **kwargs
 ) -> T | None:
-    """
-    Create a streamlit selectbox which automatically populates itself from the URL query string.
+    """Create a streamlit selectbox which automatically populates itself from the URL query string.
 
     Takes all arguments that st.selectbox takes, but the "key" keyword argument _must_ be provided. Returns the value
     selected by the user.
@@ -81,8 +80,7 @@ def radio_qs(
     unformat_func: Any = str,
     **kwargs
 ) -> T | None:
-    """
-    Create a streamlit radio widget which automatically populates itself from the URL query string.
+    """Create a streamlit radio widget which automatically populates itself from the URL query string.
 
     Takes all arguments that st.radio takes, but the "key" keyword argument _must_ be provided. Returns the value
     selected by the user. "autoupdate" causes that value to also be populated into the URL query string on change.
@@ -104,8 +102,7 @@ def multiselect_qs(
     autoupdate: bool = False,
     **kwargs,
 ) -> List[T]:
-    """
-    Create a streamlit multi_select widget which automatically populates itself from the URL query string.
+    """Create a streamlit multi_select widget which automatically populates itself from the URL query string.
 
     Takes all arguments that st.multiselect takes, but the "key" keyword argument _must_ be provided. Returns the value
     selected by the user. If the additional argument discard_missing is set to True, a ValueError will be raised
@@ -136,8 +133,7 @@ def multiselect_qs(
 
 
 def checkbox_qs(label: str, default: bool = False, *, key: str, autoupdate: bool = False, **kwargs) -> bool:
-    """
-    Create a streamlit checkbox widget which automatically populates itself from the URL query string.
+    """Create a streamlit checkbox widget which automatically populates itself from the URL query string.
 
     Takes all arguments that st.radio takes, but the "key" keyword argument _must_ be provided.
     The following values will be treated as True: "true", "1" (case insensitive)
@@ -152,9 +148,8 @@ def checkbox_qs(label: str, default: bool = False, *, key: str, autoupdate: bool
     return st.checkbox(label, value=query_bool, key=key, **kwargs)
 
 
-def text_input_qs(label: str, default: str = "", *, key: str, autoupdate: bool = False, **kwargs) -> str | None:
-    """
-    Create a streamlit text_input which automatically populates itself from the URL query string.
+def text_input_qs(label: str, default: str = "", *, key: str, autoupdate: bool = False, **kwargs) -> str:
+    """Create a streamlit text_input which automatically populates itself from the URL query string.
 
     Takes all arguments that st.text_input takes, but the "key" keyword argument _must_ be provided. Returns the value
     selected by the user. "autoupdate" causes that value to also be populated into the URL query string on change.
@@ -164,9 +159,8 @@ def text_input_qs(label: str, default: str = "", *, key: str, autoupdate: bool =
     return st.text_input(label, value=from_query_args(key, default=default), key=key, **kwargs)
 
 
-def text_area_qs(label: str, default: str = "", *, key: str, autoupdate: bool = False, **kwargs) -> str | None:
-    """
-    Create a streamlit text_area which automatically populates itself from the URL query string.
+def text_area_qs(label: str, default: str = "", *, key: str, autoupdate: bool = False, **kwargs) -> str:
+    """Create a streamlit text_area which automatically populates itself from the URL query string.
 
     Takes all arguments that st.text_area takes, but the "key" keyword argument _must_ be provided. Returns the value
     selected by the user. "autoupdate" causes that value to also be populated into the URL query string on change.
@@ -179,8 +173,7 @@ def text_area_qs(label: str, default: str = "", *, key: str, autoupdate: bool = 
 def number_input_qs(
     label: str, default: Number | NoValue | None = NoValue(), *, key: str, autoupdate: bool = False, **kwargs
 ) -> Number:
-    """
-    Create a streamlit number_input which automatically populates itself from the URL query string.
+    """Create a streamlit number_input which automatically populates itself from the URL query string.
 
     Takes all arguments that st.number_input takes, but the "key" keyword argument _must_ be provided. Returns the value
     selected by the user. "autoupdate" causes that value to also be populated into the URL query string on change.
@@ -277,8 +270,7 @@ def from_query_args_index(key: str, options: OptionSequence[T], default: int = 0
 
 
 def make_query_string(keys: Collection[str] | None = None, regex: Collection[str | re.Pattern] = ()) -> str:
-    """
-    Get a (relative) URL for a query string of of user-keyed fields on the page and their current values.
+    """Get a (relative) URL for a query string of of user-keyed fields on the page and their current values.
 
     Usage:
         >>> permalink = stu.make_query_string({"a", "b", "c"})
@@ -307,7 +299,7 @@ def make_query_string(keys: Collection[str] | None = None, regex: Collection[str
     return "?" + urllib.parse.urlencode(_qs_intersect(keys, regex), doseq=True)
 
 
-def update_qs_callback(keys: Collection[str] | None = None, regex: Collection[str | re.Pattern] = ()):
+def update_qs_callback(keys: Collection[str] | None = None, regex: Collection[str | re.Pattern] = ()) -> Callable[[], None]:
     """Return a callable that populates the browser URL with keys-value pairs for the user-defined keys specified.
 
     Accepts the same arguments as make_query_string.
@@ -342,16 +334,20 @@ def update_qs_callback(keys: Collection[str] | None = None, regex: Collection[st
     return _update_qs_callback
 
 
-def clear_qs_callback():
-    """
-    Clear the query string from the URL.
+def clear_qs_callback() -> Callable[[], None]:
+    """Return a callable that clears the query string from the URL.
 
     CAUTION: This WILL revert every field that uses the query string back to its default value.
     """
-    return st.experimental_set_query_params
+
+    def _clear_qs_callback():
+        """Clears the """
+        st.experimental_set_query_params()
+
+    return _clear_qs_callback
 
 
-def add_qs_callback(keys: Collection[str], regex: Collection[str | re.Pattern] = ()):
+def add_qs_callback(keys: Collection[str], regex: Collection[str | re.Pattern] = ()) -> Callable[[], None]:
     """Return a callable that updates the browser URL with keys-value pairs for the user-defined keys specified.
 
     Accepts the same arguments as make_query_string. Existing key-value pairs in the URL are not changed or removed.
@@ -384,22 +380,29 @@ def add_qs_callback(keys: Collection[str], regex: Collection[str | re.Pattern] =
     return _add_qs_callback
 
 
-def unenumifier(cls: Type[Enum]):
+def unenumifier(cls: Type[Tenum]) -> Callable[[str], Tenum] :
     """Get a factory function for turning strings into enum members.
 
     Python's default Enums render as strings as "<cls>.<member>". This function
     returns a callable that looks up the member based on this string.
     """
-    def _unenum(value):
-        return cls[value.replace(cls.__name__ + ".", "")]
+    def _unenum(value: str) -> Tenum:
+        """Convert a string into a member of {cls}"""
+        value_name = value.replace(cls.__name__ + ".", "")
+        try:
+            return cls[value_name]
+        except KeyError:
+            raise ValueError(f"'{value_name} is not a valid member of '{cls.__qualname__}'")
+
     _unenum.__name__ += "_" + cls.__name__
+    _unenum.__doc__ = _unenum.__doc__.format(cls=cls)  # type: ignore
 
     return _unenum
 
 
 # Helper Functions -----------------------------------------------------------------------------
 
-def _qs_intersect(keys: Collection[str] | None, regex: Collection[str | re.Pattern]) -> Mapping:
+def _qs_intersect(keys: Collection[str] | None, regex: Collection[str | re.Pattern]) -> Mapping[str, Any]:
     """Get a dictionary containing pairs from st.session_state whose keys match the arguments/patterns."""
     if isinstance(keys, str) or isinstance(regex, str):
         raise ValueError("Arguments to query string functions must be non-str collections, e.g. list, tuple, set ...")
@@ -451,11 +454,23 @@ def _convert_bool_checkbox(string_bool: str, default: bool) -> bool:
     return default
 
 
-def _ensure_list(maybe_list: Sequence[T] | T) -> List[T]:
+@overload
+def _ensure_list(maybe_list: Tbs) -> List[Tbs]:
+    ...
+
+@overload
+def _ensure_list(maybe_list: Sequence[T]) -> List[T]:
+    ...
+
+@overload
+def _ensure_list(maybe_list: T) -> List[T]:
+    ...
+
+def _ensure_list(maybe_list):
     """Convert single values and sequences (except bytes and str) to lists."""
     if isinstance(maybe_list, list):
         return maybe_list
     elif isinstance(maybe_list, (bytes, str)) or not isinstance(maybe_list, Sequence):
-        return cast(List[T], [maybe_list])
+        return [maybe_list]
     else:
         return list(maybe_list)

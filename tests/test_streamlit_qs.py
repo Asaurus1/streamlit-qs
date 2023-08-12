@@ -1,3 +1,5 @@
+from enum import Enum
+from typing import Any
 import unittest.mock as mock
 
 import pytest
@@ -237,17 +239,17 @@ def test_number_input_qs(mock_from_query_args):
 
 
 def test_qs_intersect():
-    new_session_state = {"a3": 1, "b3": 2, "b2": 3}
-    with mock.patch("streamlit.session_state", new=new_session_state):
-        assert stu._qs_intersect(None, tuple()) == new_session_state
+    new_session_state1 = {"a3": 1, "b3": 2, "b2": 3}
+    with mock.patch("streamlit.session_state", new=new_session_state1):
+        assert stu._qs_intersect(None, tuple()) == new_session_state1
         assert stu._qs_intersect(tuple(), tuple()) == {}  # i.e. if the user passes in keys=[]
         assert stu._qs_intersect(["a3", "b3"], tuple()) == {"a3": 1, "b3": 2}
         assert stu._qs_intersect(["a3", "badval"], tuple()) == {"a3": 1}
         assert stu._qs_intersect(None, ["b.$"]) == {"b2": 3, "b3": 2}
         assert stu._qs_intersect(["a3"], ["b.$"]) == {"a3": 1, "b2": 3, "b3": 2}
 
-    new_session_state = {"a3": 1, "blacklisted_key": "blacklisted"}
-    with mock.patch("streamlit.session_state", new=new_session_state):
+    new_session_state2 = {"a3": 1, "blacklisted_key": "blacklisted"}
+    with mock.patch("streamlit.session_state", new=new_session_state2):
         stu.blacklist_key("blacklisted_key")
         assert stu._qs_intersect(None, tuple()) == {"a3": 1}
         stu.unblacklist_key("blacklisted_key")
@@ -286,14 +288,16 @@ def test_update_and_add_qs_callback(mock_get, mock_set):
         mock_set.reset_mock()
 
 
-def test_clear_qs_callback():
-    assert stu.clear_qs_callback() is st.experimental_set_query_params
+@mock.patch("streamlit.experimental_set_query_params", spec=st.experimental_set_query_params)
+def test_clear_qs_callback(mock_set):
+    stu.clear_qs_callback()()
+    mock_set.assert_called_once()
 
 
 @mock.patch("streamlit.experimental_set_query_params", spec=st.experimental_set_query_params)
 @mock.patch("streamlit.experimental_get_query_params", spec=st.experimental_set_query_params)
 def test_wrap_on_chage_with_qs_update(mock_get, mock_set):
-    kwargs = {"foo": "a", "bar": "b"}
+    kwargs: Any = {"foo": "a", "bar": "b"}
     stu._wrap_on_change_with_qs_update("key", kwargs)
     assert callable(kwargs["on_change"])
     assert kwargs["on_change"].__name__ == "_add_qs_callback"
@@ -338,3 +342,31 @@ def _test_helper_autoupdate(func, *args, **kwargs):
         mock_wrap.assert_called()
     # Return whatever was returned by the function under test
     return retval
+
+
+def test_unenumifier():
+    class AnEnum(Enum):
+        FOO = 0
+        BAR = 1
+
+    class NotAnEnum:
+        ...
+
+    unenumifier = stu.unenumifier(AnEnum)
+    assert callable(unenumifier)
+    assert unenumifier("FOO") == AnEnum.FOO
+    assert unenumifier("AnEnum.BAR") == AnEnum.BAR
+    with pytest.raises(ValueError):
+        unenumifier("invalid")
+    with pytest.raises(AttributeError):
+        stu.unenumifier("foo")  # type: ignore
+    with pytest.raises(TypeError):
+        stu.unenumifier(NotAnEnum)("FOO")  # type: ignore
+
+
+def test_ensure_list():
+    assert stu._ensure_list("abc") == ["abc"]
+    assert stu._ensure_list(b"abc") == [b"abc"]
+    assert stu._ensure_list((5, 6, 7)) == [5, 6, 7]
+    assert stu._ensure_list([1, 2, 3]) == [1, 2, 3]
+    assert stu._ensure_list(5) == [5]

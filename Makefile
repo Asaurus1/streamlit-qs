@@ -20,7 +20,7 @@ install:
 # Run unit tests
 test:
 	pytest tests/
-	mypy streamlit_qs/ example.py tests/
+	mypy streamlit_qs/ example.py tests/ --check-untyped-defs
 
 .PHONY: clean
 # Remove temporary files
