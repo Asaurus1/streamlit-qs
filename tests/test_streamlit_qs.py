@@ -1,304 +1,411 @@
 from enum import Enum
-from typing import Any
+from typing import Any, Dict
 import unittest.mock as mock
 
 import pytest
 import streamlit as st
-from streamlit.errors import StreamlitAPIException
+from streamlit.errors import StreamlitAPIException, StreamlitAPIWarning
 
-import streamlit_qs as stu
+import streamlit_qs as stqs
+
+
+@pytest.fixture
+def session_state():
+    with mock.patch("streamlit.session_state", new={}) as ss:  # type: ignore
+        yield ss
+
+
+@pytest.fixture
+def mock_get():
+    with mock.patch("streamlit_qs.get_query_params", spec=stqs.get_query_params) as mock_get:
+        yield mock_get
+
+
+@pytest.fixture
+def mock_set():
+    with mock.patch("streamlit.experimental_set_query_params", spec=st.experimental_set_query_params) as mock_set:
+        yield mock_set
+
+
+@pytest.fixture
+def mock_from_query_args():
+    with mock.patch("streamlit_qs.from_query_args") as mock_from_query_args:
+        yield mock_from_query_args
+
+
+@pytest.fixture
+def mock_query_args_index():
+    with mock.patch("streamlit_qs.from_query_args_index") as mock_from_query_args_index:
+        yield mock_from_query_args_index
 
 
 @mock.patch("streamlit.commands.query_params.get_script_run_ctx")
 def test_from_query_args_str(mock_ctx: mock.MagicMock):
     mock_ctx().query_string = "a=1&b=2&c=3&c=4"
     deflist = ["default"]
-    assert stu.from_query_args("a") == "1"
-    assert stu.from_query_args("b", "default") == "2"
-    assert stu.from_query_args("c", deflist, as_list=True) == ["3", "4"]
-    assert stu.from_query_args("d", "default") == "default"
-    assert stu.from_query_args("e", deflist, as_list=True) is deflist
+    stqs.from_query_args("a") == "1"
+    stqs.from_query_args("b", "default") == "2"
+    stqs.from_query_args("b", None) == "2"
+    stqs.from_query_args("c", deflist, as_list=True) == ["3", "4"]
+    stqs.from_query_args("d", "default") == "default"
+    stqs.from_query_args("d", None) is None
+    stqs.from_query_args("e", deflist, as_list=True) is deflist
     with pytest.raises(ValueError):
-        assert stu.from_query_args("c", "5") != ["3", "4"]  # type: ignore
+        stqs.from_query_args("c", "5") != ["3", "4"]  # type: ignore
 
 
 @mock.patch("streamlit.commands.query_params.get_script_run_ctx")
 def test_from_query_args_nonstr(mock_ctx: mock.MagicMock):
     mock_ctx().query_string = "a=1&b=2&c=3&c=4"
-    assert stu.from_query_args("a", unformat_func=int) == 1
-    assert stu.from_query_args("b", "default", unformat_func=int) == 2
-    assert stu.from_query_args("c", [5], as_list=True, unformat_func=int) == [3, 4]
-    assert stu.from_query_args("d", 5, unformat_func=int) == 5
+    stqs.from_query_args("a", unformat_func=int) == 1
+    stqs.from_query_args("b", "default", unformat_func=int) == 2
+    stqs.from_query_args("c", [5], as_list=True, unformat_func=int) == [3, 4]
+    stqs.from_query_args("d", 5, unformat_func=int) == 5
 
 
-@mock.patch("streamlit_qs.from_query_args")
 def test_from_query_args_index_str(mock_from_query_args: mock.MagicMock):
     mock_from_query_args.return_value = "1"
     options = ["3", "1", "5"]
-    assert stu.from_query_args_index("a", options) == 1
+    stqs.from_query_args_index("a", options) == 1
     mock_from_query_args.return_value = "10"
-    assert stu.from_query_args_index("b", options, default=99) == 99
+    stqs.from_query_args_index("b", options, default=99) == 99
+    stqs.from_query_args_index("b", options, default=None) == None
 
 
-@mock.patch("streamlit_qs.from_query_args")
 def test_from_query_args_index_nonstr(mock_from_query_args: mock.MagicMock):
-    mock_from_query_args.return_value = "1"
-    options = ["3", "1", "5"]
-    assert stu.from_query_args_index("a", options) == 1
-    mock_from_query_args.return_value = "10"
-    assert stu.from_query_args_index("b", options, default=99) == 99
+    mock_from_query_args.return_value = 1
+    options = [3, 1, 5]
+    stqs.from_query_args_index("a", options, unformat_func=int) == 1
+    mock_from_query_args.return_value = 10
+    stqs.from_query_args_index("b", options, default=99, unformat_func=int) == 99
 
 
-@mock.patch("streamlit_qs.from_query_args_index")
-def test_selectbox_qs(mock_query_args_index: mock.MagicMock):
+def test_selectbox_qs(mock_query_args_index: mock.MagicMock, session_state):
     mock_query_args_index.return_value = 1
-    assert stu.selectbox_qs("Test", ["a", "b", "c"], key="test") == "b"
+    stqs.selectbox_qs("Test", ["a", "b", "c"], key="test")
+    assert session_state["test"] == "b"
     mock_query_args_index.assert_called_with("test", ["a", "b", "c"], default=0, unformat_func=str)
-    assert stu.selectbox_qs("Test", [1, 2, 3], key="test", unformat_func=int) == 2
-    mock_query_args_index.assert_called_with("test", [1, 2, 3], default=0, unformat_func=int)
+    stqs.selectbox_qs("Test", [1, 2, 3], key="test2", unformat_func=int)
+    assert session_state["test2"] == 2
+    mock_query_args_index.assert_called_with("test2", [1, 2, 3], default=0, unformat_func=int)
 
-    assert _test_helper_autoupdate(stu.selectbox_qs, "Test", ["a", "b", "c"], key="test", autoupdate=True) == "b"
+    assert _test_helper_autoupdate(stqs.selectbox_qs, "Test", ["a", "b", "c"], key="test3", autoupdate=True)
+    assert session_state["test3"] == "b"
 
     with pytest.raises(TypeError):
         # can't call without key
-        stu.selectbox_qs("Test", [1, 2, 3])  # type: ignore
+        stqs.selectbox_qs("Test", [1, 2, 3])  # type: ignore
+
+    with pytest.raises(StreamlitAPIException):
+        stqs.selectbox_qs("Test", options=[1, 2, None], key="badtest")
 
 
-@mock.patch("streamlit_qs.from_query_args_index")
-def test_radio_qs(mock_query_args_index: mock.MagicMock):
+def test_radio_qs(mock_query_args_index: mock.MagicMock, session_state):
     mock_query_args_index.return_value = 1
-    assert stu.radio_qs("Test", ["a", "b", "c"], key="test") == "b"
+    stqs.radio_qs("Test", ["a", "b", "c"], key="test")
+    assert session_state["test"] == "b"
     mock_query_args_index.assert_called_with("test", ["a", "b", "c"], default=0, unformat_func=str)
-    assert stu.radio_qs("Test", [1, 2, 3], key="test", unformat_func=int) == 2
-    mock_query_args_index.assert_called_with("test", [1, 2, 3], default=0, unformat_func=int)
+    stqs.radio_qs("Test", [1, 2, 3], key="test2", unformat_func=int) == 2
+    mock_query_args_index.assert_called_with("test2", [1, 2, 3], default=0, unformat_func=int)
 
-    assert _test_helper_autoupdate(stu.radio_qs, "Test", ["a", "b", "c"], key="test", autoupdate=True) == "b"
+    assert _test_helper_autoupdate(stqs.radio_qs, "Test", ["a", "b", "c"], key="test3", autoupdate=True)
+    assert session_state["test3"] == "b"
 
     with pytest.raises(TypeError):
         # can't call without key
-        stu.radio_qs("Test", [1, 2, 3])  # type: ignore
+        stqs.radio_qs("Test", [1, 2, 3])  # type: ignore
+
+    with pytest.raises(StreamlitAPIException):
+        stqs.radio_qs("Test", options=[1, 2, None], key="badtest")
 
 
-@mock.patch("streamlit_qs.from_query_args")
 @mock.patch("streamlit.multiselect", wraps=st.multiselect)
-def test_multiselect_qs_strings(mock_ms: mock.MagicMock, mock_from_query_args: mock.MagicMock):
+def test_multiselect_qs_strings(mock_ms: mock.MagicMock, mock_from_query_args: mock.MagicMock, session_state):
     options = ["3", "1", "5"]
 
     mock_from_query_args.return_value = ["1"]
-    assert stu.multiselect_qs("Test", options, key="test") == ["1"]
-    mock_ms.assert_called_with("Test", options, default=["1"], key="test")
+    stqs.multiselect_qs("Test", options, key="test")
+    assert session_state["test"] == ["1"]
+    mock_ms.assert_called_with("Test", options, default=None, key="test")
 
     mock_from_query_args.return_value = ["1", "5", "7"]
-    assert stu.multiselect_qs("Test", options, key="test") == ["1", "5"]
-    mock_ms.assert_called_with("Test", options, default=["1", "5"], key="test")
+    stqs.multiselect_qs("Test", options, key="test2")
+    assert session_state["test2"] == ["1", "5"]
+    mock_ms.assert_called_with("Test", options, default=None, key="test2")
 
     mock_from_query_args.return_value = ["1", "3"]
-    assert stu.multiselect_qs("Test", options, default=["1", "3"], key="test") == ["1", "3"]
-    mock_ms.assert_called_with("Test", options, default=["1", "3"], key="test")
+    stqs.multiselect_qs("Test", options, default=["1", "3"], key="test3")
+    assert session_state["test3"] == ["1", "3"]
+    mock_ms.assert_called_with("Test", options, default=["1", "3"], key="test3")
 
     mock_from_query_args.return_value = ["3"]
-    assert stu.multiselect_qs("Test", options, default="3", key="test") == ["3"]
-    mock_ms.assert_called_with("Test", options, default=["3"], key="test")
+    stqs.multiselect_qs("Test", options, default="3", key="test4")
+    assert session_state["test4"] == ["3"]
+    mock_ms.assert_called_with("Test", options, default="3", key="test4")
 
     mock_from_query_args.return_value = []
-    assert stu.multiselect_qs("Test", options, key="test") == []
-    mock_ms.assert_called_with("Test", options, default=[], key="test")
+    stqs.multiselect_qs("Test", options, key="test5")
+    assert session_state["test5"] == []
+    mock_ms.assert_called_with("Test", options, default=None, key="test5")
 
     mock_from_query_args.return_value = []
-    assert _test_helper_autoupdate(stu.multiselect_qs, "Test", options, key="test", autoupdate=True) == []
+    _test_helper_autoupdate(stqs.multiselect_qs, "Test", options, key="test6", autoupdate=True)
+    assert session_state["test6"] == []
 
     mock_from_query_args.return_value = ["1", "5", "7"]
     with pytest.raises(ValueError):
-        assert stu.multiselect_qs("Test", options, key="test", discard_missing=False) != ["1", "5"]
+        stqs.multiselect_qs("Test", options, key="test7", discard_missing=False) != ["1", "5"]
 
     with pytest.raises(TypeError):
         # can't call without key
-        stu.multiselect_qs("Test", [1, 2, 3])  # type: ignore
+        stqs.multiselect_qs("Test", ["1", "2", "3"])  # type: ignore
 
 
-@mock.patch("streamlit_qs.from_query_args")
 @mock.patch("streamlit.multiselect", wraps=st.multiselect)
-def test_multiselect_qs_nonstring(mock_ms: mock.MagicMock, mock_from_query_args: mock.MagicMock):
+def test_multiselect_qs_nonstring(mock_ms: mock.MagicMock, mock_from_query_args: mock.MagicMock, session_state):
     options = [1, 3, 5]
 
     mock_from_query_args.return_value = [1]
-    assert stu.multiselect_qs("Test", options, key="test", unformat_func=int) == [1]
-    mock_ms.assert_called_with("Test", options, default=[1], key="test")
+    stqs.multiselect_qs("Test", options, key="test", unformat_func=int)
+    assert session_state["test"] == [1]
+    mock_ms.assert_called_with("Test", options, default=None, key="test")
 
     mock_from_query_args.return_value = [1, 2, 3]
-    assert stu.multiselect_qs("Test", options, key="test", unformat_func=lambda x: len(x)) == [1, 3]
-    mock_ms.assert_called_with("Test", options, default=[1, 3], key="test")
+    stqs.multiselect_qs("Test", options, key="test2", unformat_func=lambda x: len(x))
+    assert session_state["test2"] == [1, 3]
+    mock_ms.assert_called_with("Test", options, default=None, key="test2")
 
     mock_from_query_args.return_value = [1, 5]
-    assert stu.multiselect_qs("Test", options, default=[1, 5], key="test") == [1, 5]
-    mock_ms.assert_called_with("Test", options, default=[1, 5], key="test")
+    stqs.multiselect_qs("Test", options, default=[1, 5], key="test3")
+    assert session_state["test3"] == [1, 5]
+    mock_ms.assert_called_with("Test", options, default=[1, 5], key="test3")
 
     mock_from_query_args.return_value = []
-    assert stu.multiselect_qs("Test", options, key="test") == []
-    mock_ms.assert_called_with("Test", options, default=[], key="test")
+    stqs.multiselect_qs("Test", options, key="test4")
+    assert session_state["test4"] == []
+    mock_ms.assert_called_with("Test", options, default=None, key="test4")
+
+    with pytest.raises(StreamlitAPIException):
+        stqs.multiselect_qs("Test", options=[1, 2, None], key="badtest")
 
 
-@mock.patch("streamlit_qs.from_query_args")
-def test_checkbox_qs(mock_from_query_args: mock.MagicMock):
+def test_checkbox_qs(mock_from_query_args: mock.MagicMock, session_state):
     for val in ("1", "True", "tRue", "TRUE"):
-        mock_from_query_args.return_value = stu._convert_bool_checkbox(val, False)
-        assert stu.checkbox_qs("Test", key="test") is True
+        mock_from_query_args.return_value = stqs._convert_bool_checkbox(val, False)
+        stqs.checkbox_qs("Test", key="test")
+        assert session_state["test"] is True
     for val in ("0", "FALSE", "False", "false"):
-        mock_from_query_args.return_value = stu._convert_bool_checkbox(val, False)
-        assert stu.checkbox_qs("Test", key="test") is False
+        mock_from_query_args.return_value = stqs._convert_bool_checkbox(val, False)
+        stqs.checkbox_qs("Test", key="test2")
+        assert session_state["test2"] is False
 
-    mock_from_query_args.return_value = stu._convert_bool_checkbox("TROO", True)
-    assert stu.checkbox_qs("Test", key="test", default=True) is True
-    mock_from_query_args.return_value = stu._convert_bool_checkbox("TROO", False)
-    assert stu.checkbox_qs("Test", key="test", default=False) is False
+    mock_from_query_args.return_value = stqs._convert_bool_checkbox("TROO", True)
+    stqs.checkbox_qs("Test", key="test3", default=True)
+    assert session_state["test3"] is True
+    mock_from_query_args.return_value = stqs._convert_bool_checkbox("TROO", False)
+    stqs.checkbox_qs("Test", key="test4", default=False)
+    assert session_state["test4"] is False
     
     mock_from_query_args.return_value = False
-    assert _test_helper_autoupdate(stu.checkbox_qs, "Test", key="test", autoupdate=True) is False
+    _test_helper_autoupdate(stqs.checkbox_qs, "Test", key="test5", autoupdate=True)
+    assert session_state["test5"] is False
 
     with pytest.raises(TypeError):
         # can't call without key
-        stu.selectbox_qs("Test", [1, 2])  # type: ignore
+        stqs.selectbox_qs("Test", [1, 2])  # type: ignore
 
 
-@mock.patch("streamlit_qs.from_query_args")
-def test_text_input_qs(mock_from_query_args: mock.MagicMock):
+def test_text_input_qs(mock_from_query_args: mock.MagicMock, session_state):
     mock_from_query_args.return_value = "hello"
-    assert stu.text_input_qs("Test", default="world", key="test") == "hello"
+    stqs.text_input_qs("Test", default="world", key="test")
+    assert session_state["test"] == "hello"
     mock_from_query_args.assert_called_with("test", default="world")
 
-    assert _test_helper_autoupdate(stu.text_input_qs, "Test", key="test", autoupdate=True) == "hello"
+    _test_helper_autoupdate(stqs.text_input_qs, "Test", key="test2", autoupdate=True)
+    assert session_state["test2"] == "hello"
 
     mock_from_query_args.side_effect = ValueError("multiple values")
     with pytest.raises(ValueError):
-        stu.text_input_qs("Test", key="a")
+        stqs.text_input_qs("Test", key="a")
     with pytest.raises(TypeError):
         # can't call without key
-        stu.text_input_qs("Test", [1, 2])  # type: ignore
+        stqs.text_input_qs("Test", [1, 2])  # type: ignore
 
 
-@mock.patch("streamlit_qs.from_query_args")
-def test_text_area_qs(mock_from_query_args):
+def test_text_area_qs(mock_from_query_args, session_state):
     mock_from_query_args.return_value = "hello"
-    assert stu.text_area_qs("Test", default="world", key="test") == "hello"
+    stqs.text_area_qs("Test", default="world", key="test")
+    assert session_state["test"] == "hello"
     mock_from_query_args.assert_called_with("test", default="world")
 
-    assert _test_helper_autoupdate(stu.text_area_qs, "Test", key="test", autoupdate=True) == "hello"
+    _test_helper_autoupdate(stqs.text_area_qs, "Test", key="test2", autoupdate=True)
+    assert session_state["test2"] == "hello"
 
     mock_from_query_args.side_effect = ValueError("multiple values")
     with pytest.raises(ValueError):
-        stu.text_area_qs("Test", key="a")
+        stqs.text_area_qs("Test", key="a")
     with pytest.raises(TypeError):
         # can't call without key
-        stu.text_area_qs("Test")  # type: ignore
+        stqs.text_area_qs("Test")  # type: ignore
 
 
-@mock.patch("streamlit_qs.from_query_args")
-def test_number_input_qs(mock_from_query_args):
+def test_number_input_qs(mock_from_query_args, session_state):
     mock_from_query_args.return_value = "hello"
-    val = stu.number_input_qs("Test", default=4, key="test")
+    val = stqs.number_input_qs("Test", default=4, key="test0")
+    # When query string invalid and default=="min" we dont expect session_state to get set
+    assert "test0" not in session_state
     assert val == 4 and isinstance(val, int)
 
     mock_from_query_args.return_value = "hello"
-    val = stu.number_input_qs("Test", key="test")
+    val = stqs.number_input_qs("Test", key="test1")
+    # When query string invalid and default=="min" we dont expect session_state to get set
+    assert "test1" not in session_state
     assert val == 0.0 and isinstance(val, float)
 
     mock_from_query_args.return_value = "6"
-    val = stu.number_input_qs("Test", default=5.0, key="test")
+    stqs.number_input_qs("Test", default=5.0, key="test2")
+    val = session_state["test2"]
     assert val == 6.0 and isinstance(val, float)
-    val = stu.number_input_qs("Test", default=4, key="test")
+    stqs.number_input_qs("Test", default=4, key="test3")
+    val = session_state["test3"]
     assert val == 6 and isinstance(val, int)
-    val = stu.number_input_qs("Test", min_value=5, key="test")
+    stqs.number_input_qs("Test", min_value=5, key="test4")
+    val = session_state["test4"]
     assert val == 6 and isinstance(val, int)
-    val = stu.number_input_qs("Test", max_value=7, key="test")
+    stqs.number_input_qs("Test", max_value=7, key="test5")
+    val = session_state["test5"]
     assert val == 6 and isinstance(val, int)
-    val = stu.number_input_qs("Test", step=4.5, key="test")
+    stqs.number_input_qs("Test", max_value=4, key="test5.1")  # it even lets you go outside normal bounds?
+    val = session_state["test5.1"]
+    assert val == 6 and isinstance(val, int)
+    stqs.number_input_qs("Test", step=4.5, key="test6")
+    val = session_state["test6"]
     assert val == 6.0 and isinstance(val, float)
-    val = stu.number_input_qs("Test", key="test")
+    stqs.number_input_qs("Test", key="test7")
+    val = session_state["test7"]
+    assert val == 6.0 and isinstance(val, float)
+
+    stqs.number_input_qs("Test", default=None, key="test8")
+    val = session_state["test8"]
     assert val == 6.0 and isinstance(val, float)
 
     mock_from_query_args.return_value = "NOT_A_NUMBER"
-    assert _test_helper_autoupdate(stu.number_input_qs, "Test", key="test", autoupdate=True) == 0
+    assert _test_helper_autoupdate(stqs.number_input_qs, "Test", key="test9", autoupdate=True) == 0
+    assert "test9" not in session_state
+    assert stqs.number_input_qs("Test", default=None, key="test10") is None
+    assert "test10" not in session_state
+
+    mock_from_query_args.return_value = None
+    assert stqs.number_input_qs("Test", key="test11") == 0
+    assert "test11" not in session_state
+    assert stqs.number_input_qs("Test", default=5.0, key="test12") == 5.0
+    assert "test12" not in session_state
+    assert stqs.number_input_qs("Test", max_value=5, key="test13") == 0
+    assert "test13" not in session_state
 
     mock_from_query_args.side_effect = ValueError("multiple values")
     with pytest.raises(ValueError):
-        stu.number_input_qs("Test", key="a")
+        stqs.number_input_qs("Test", key="a")
 
     mock_from_query_args.side_effect = None
     mock_from_query_args.return_value = "6"
     with pytest.raises(TypeError, match="Expected type was not a float"):
-        stu.number_input_qs("Test", min_value="string", key="test")  # bad type with no default
+        stqs.number_input_qs("Test", min_value="string", key="test")  # bad type with no default
     with pytest.raises(TypeError, match="Expected type was not a float"):
-        stu.number_input_qs("Test", max_value="string", key="test")  # bad type with no default
+        stqs.number_input_qs("Test", max_value="string", key="test")  # bad type with no default
     with pytest.raises(TypeError, match="Expected type was not a float"):
-        stu.number_input_qs("Test", step="string", key="test")  # bad type with no default
-    with pytest.raises(StreamlitAPIException):
-        stu.number_input_qs("Test", max_value=1.0, key="test")  # set value outside bounds
+        stqs.number_input_qs("Test", step="string", key="test")  # bad type with no default
     with pytest.raises(TypeError, match="keyword-only"):
         # can't call without key
-        stu.number_input_qs("Test")  # type: ignore
+        stqs.number_input_qs("Test")  # type: ignore
 
 
 def test_qs_intersect():
     new_session_state1 = {"a3": 1, "b3": 2, "b2": 3}
     with mock.patch("streamlit.session_state", new=new_session_state1):
-        assert stu._qs_intersect(None, tuple()) == new_session_state1
-        assert stu._qs_intersect(tuple(), tuple()) == {}  # i.e. if the user passes in keys=[]
-        assert stu._qs_intersect(["a3", "b3"], tuple()) == {"a3": 1, "b3": 2}
-        assert stu._qs_intersect(["a3", "badval"], tuple()) == {"a3": 1}
-        assert stu._qs_intersect(None, ["b.$"]) == {"b2": 3, "b3": 2}
-        assert stu._qs_intersect(["a3"], ["b.$"]) == {"a3": 1, "b2": 3, "b3": 2}
+        stqs._qs_intersect(None, tuple()) == new_session_state1
+        stqs._qs_intersect(tuple(), tuple()) == {}  # i.e. if the user passes in keys=[]
+        stqs._qs_intersect(["a3", "b3"], tuple()) == {"a3": 1, "b3": 2}
+        stqs._qs_intersect(["a3", "badval"], tuple()) == {"a3": 1}
+        stqs._qs_intersect(None, ["b.$"]) == {"b2": 3, "b3": 2}
+        stqs._qs_intersect(["a3"], ["b.$"]) == {"a3": 1, "b2": 3, "b3": 2}
 
     new_session_state2 = {"a3": 1, "blacklisted_key": "blacklisted"}
     with mock.patch("streamlit.session_state", new=new_session_state2):
-        stu.blacklist_key("blacklisted_key")
-        assert stu._qs_intersect(None, tuple()) == {"a3": 1}
-        stu.unblacklist_key("blacklisted_key")
-        assert "blacklisted_key" not in stu.QS_BLACKLIST_KEYS
+        stqs.blacklist_key("blacklisted_key")
+        stqs._qs_intersect(None, tuple()) == {"a3": 1}
+        stqs.unblacklist_key("blacklisted_key")
+        assert "blacklisted_key" not in stqs.QS_BLACKLIST_KEYS
 
     with pytest.raises(ValueError, match="Arguments to query string functions must be non-str collections"):
-        stu._qs_intersect("foo", tuple())
+        stqs._qs_intersect("foo", tuple())
     with pytest.raises(ValueError, match="Arguments to query string functions must be non-str collections"):
-        stu._qs_intersect(None, "foo")
+        stqs._qs_intersect(None, "foo")
 
 
-def test_make_query_string():
-    new_session_state = {"a3": 1, "b3": "hello world", "b2": 3}
-    with mock.patch("streamlit.session_state", new=new_session_state):
-        assert all(kv in stu.make_query_string() for kv in ["?", "a3=1", "b3=hello+world", "b2=3"])
-        assert all(kv in stu.make_query_string(regex=["b.$"]) for kv in ["?", "b3=hello+world", "b2=3"])
-        assert stu.make_query_string(["b3"]) == "?b3=hello+world"
+def test_make_query_string(session_state):
+    session_state.update({"a3": 1, "b3": "hello world", "b2": 3})
+    assert all(kv in stqs.make_query_string() for kv in ["?", "a3=1", "b3=hello+world", "b2=3"])
+    assert all(kv in stqs.make_query_string(regex=["b.$"]) for kv in ["?", "b3=hello+world", "b2=3"])
+    stqs.make_query_string(["b3"]) == "?b3=hello+world"
 
 
-@mock.patch("streamlit.experimental_set_query_params", spec=st.experimental_set_query_params)
-@mock.patch("streamlit.experimental_get_query_params", spec=st.experimental_set_query_params)
-def test_update_and_add_qs_callback(mock_get, mock_set):
-    new_session_state = {"a3": 1, "b3": "hello world", "b2": 3}
-    with mock.patch("streamlit.session_state", new=new_session_state):
-        func = stu.update_qs_callback(["a3", "b3"], regex=[])
-        mock_set.assert_not_called()
-        func()
-        mock_set.assert_called_with(a3=1, b3="hello world")
-        mock_set.reset_mock()
+def test_set_qs_callback(mock_get, mock_set, session_state):
+    session_state.update({"a3": 1, "b3": "hello world", "b2": 3})
 
-        mock_get.return_value = {"a1": "hi"}
-        func = stu.add_qs_callback(["b2"], regex=[])
-        mock_set.assert_not_called()
-        func()
-        mock_set.assert_called_with(a1="hi", b2=3)
-        mock_set.reset_mock()
+    func = stqs.set_qs_callback(["a3", "b3"], regex=[])
+    mock_set.assert_not_called()
+    func()
+    mock_set.assert_called_with(a3=1, b3="hello world")
+    mock_set.reset_mock()
 
 
-@mock.patch("streamlit.experimental_set_query_params", spec=st.experimental_set_query_params)
-def test_clear_qs_callback(mock_set):
-    stu.clear_qs_callback()()
+def test_add_qs_callback(mock_get, mock_set, session_state):
+    session_state.update({"a3": 1, "b3": "hello world", "b2": 3, "nonekey": None})
+
+    mock_get.return_value = {"a1": "hi", "nonekey": "5"}
+    func = stqs.add_qs_callback(["b2"], regex=[])
+    mock_set.assert_not_called()
+    func()
+    mock_set.assert_called_with(a1="hi", b2=3, nonekey="5")
+    func = stqs.add_qs_callback(["nonekey"])
+    func()
+    mock_set.assert_called_with(a1="hi", b2=3, nonekey="5")
+    mock_set.reset_mock()
+
+
+def test_update_qs_callback(mock_get, mock_set, session_state):
+    session_state.update({"a3": 1, "b3": "hello world", "b2": 3, "nonekey": None})
+
+    mock_get.return_value = {"a1": "hi", "nonekey": "5"}
+    func = stqs.update_qs_callback(["b2"], regex=[])
+    mock_set.assert_not_called()
+    func()
+    mock_set.assert_called_with(a1="hi", b2=3, nonekey="5")
+    func = stqs.update_qs_callback(["nonekey"])
+    func()
+    mock_set.assert_called_with(a1="hi", b2=3)
+    mock_set.reset_mock()
+
+
+def test_clear_qs_callback(mock_get, mock_set, session_state):
+    session_state.update({"a3": 1, "b3": "hello world", "b2": 3, "nonekey": None})
+
+    func = stqs.clear_qs_callback()
+    mock_set.assert_not_called()
+    func()
     mock_set.assert_called_once()
+    mock_set.reset_mock()
+
+    mock_get.return_value = {"a1": "hi", "b3": "world"}
+    func = stqs.clear_qs_callback(["b3"])
+    func()
+    mock_set.assert_called_with(a1="hi")
 
 
-@mock.patch("streamlit.experimental_set_query_params", spec=st.experimental_set_query_params)
-@mock.patch("streamlit.experimental_get_query_params", spec=st.experimental_set_query_params)
-def test_wrap_on_chage_with_qs_update(mock_get, mock_set):
-    kwargs: Any = {"foo": "a", "bar": "b"}
-    stu._wrap_on_change_with_qs_update("key", kwargs)
+def test_wrap_on_chage_with_qs_update(mock_get, mock_set, session_state):
+    kwargs: Any = {"foo": "a", "bar": "b", "none": None}
+    stqs._wrap_on_change_with_qs_update("key", kwargs, remove_none_values=False)
     assert callable(kwargs["on_change"])
     assert kwargs["on_change"].__name__ == "_add_qs_callback"
     mock_get.assert_not_called()
@@ -311,29 +418,30 @@ def test_wrap_on_chage_with_qs_update(mock_get, mock_set):
 
     callback = mock.MagicMock(__name__="mockfunction")
     kwargs = {"foo": "a", "bar": "b", "on_change": callback}
-    stu._wrap_on_change_with_qs_update("key", kwargs)
+    stqs._wrap_on_change_with_qs_update("key", kwargs, remove_none_values=True)
     assert callable(kwargs["on_change"])
     assert kwargs["on_change"].__name__ == "mockfunction"
     assert kwargs["on_change"] is not callback
     callback.assert_not_called()
     mock_get.assert_not_called()
     mock_set.assert_not_called()
-    mock_get.return_value = {"key": "hi"}
+    mock_get.return_value = {"key": "a", "foobar": "b"}
+    session_state["key"] = None
     kwargs["on_change"]()
     callback.assert_called()
-    mock_set.assert_called_with(key="hi")
+    mock_set.assert_called_with(foobar="b")
     mock_set.reset_mock()
 
     kwargs = {"foo": "a", "bar": "b", "on_change": 1}
     with pytest.raises(TypeError, match="keyword argument is not callable"):
-        stu._wrap_on_change_with_qs_update("key", kwargs)
+        stqs._wrap_on_change_with_qs_update("key", kwargs, remove_none_values=True)
 
 
 def _test_helper_autoupdate(func, *args, **kwargs):
     """Helper function to test an "autoupdate" call"""
 
     # patch the wrap on change function
-    with mock.patch.object(stu, "_wrap_on_change_with_qs_update") as mock_wrap:
+    with mock.patch("streamlit_qs._wrap_on_change_with_qs_update") as mock_wrap:
         # Add autoupdate=True as a kwarg if it hasn't been by the caller
         kwargs.update(autoupdate=True)
         # Call the function under test
@@ -352,21 +460,62 @@ def test_unenumifier():
     class NotAnEnum:
         ...
 
-    unenumifier = stu.unenumifier(AnEnum)
+    unenumifier = stqs.unenumifier(AnEnum)
     assert callable(unenumifier)
     assert unenumifier("FOO") == AnEnum.FOO
     assert unenumifier("AnEnum.BAR") == AnEnum.BAR
     with pytest.raises(ValueError):
         unenumifier("invalid")
     with pytest.raises(AttributeError):
-        stu.unenumifier("foo")  # type: ignore
+        stqs.unenumifier("foo")  # type: ignore
     with pytest.raises(TypeError):
-        stu.unenumifier(NotAnEnum)("FOO")  # type: ignore
+        stqs.unenumifier(NotAnEnum)("FOO")  # type: ignore
 
 
 def test_ensure_list():
-    assert stu._ensure_list("abc") == ["abc"]
-    assert stu._ensure_list(b"abc") == [b"abc"]
-    assert stu._ensure_list((5, 6, 7)) == [5, 6, 7]
-    assert stu._ensure_list([1, 2, 3]) == [1, 2, 3]
-    assert stu._ensure_list(5) == [5]
+    assert stqs._ensure_list("abc") == ["abc"]
+    assert stqs._ensure_list(b"abc") == [b"abc"]
+    assert stqs._ensure_list((5, 6, 7)) == [5, 6, 7]
+    assert stqs._ensure_list([1, 2, 3]) == [1, 2, 3]
+    assert stqs._ensure_list(5) == [5]
+
+
+def test_infer_unformat_func():
+    class AnEnum(Enum):
+        FOO = 0
+        BAR = 1
+
+    assert stqs._infer_common_unformat_funcs([1, 2, 3], str) is int
+    assert stqs._infer_common_unformat_funcs([1.0, 2.0, 3.0], str) is float
+    assert stqs._infer_common_unformat_funcs([AnEnum.FOO, AnEnum.BAR], str).__name__ == "_unenum_AnEnum"
+
+    assert stqs._infer_common_unformat_funcs([1, 2, 3.0], str) is str
+    assert stqs._infer_common_unformat_funcs([1.0, 2.0, AnEnum.FOO], str) is str
+    assert stqs._infer_common_unformat_funcs([AnEnum.FOO, AnEnum.BAR, "AnEnum.BAZ"], str) is str
+
+    assert stqs._infer_common_unformat_funcs([1, 2, 3], float) is float
+    assert stqs._infer_common_unformat_funcs([1.0, 2.0, 3.0], int) is int
+    def enum_unformat(e): return e.name
+    assert stqs._infer_common_unformat_funcs([AnEnum.FOO, AnEnum.BAR], enum_unformat) is enum_unformat
+
+
+@mock.patch("streamlit.exception")
+def test_warn_on_common_unmatching_unformat_funcs(mock_warning):
+    stqs._warn_on_common_unmatching_unformat_functions([1, 2, 3], str)
+    assert isinstance(mock_warning.call_args[0][0], StreamlitAPIWarning)
+    assert repr({int}) in str(mock_warning.call_args[0][0])
+
+    stqs._warn_on_common_unmatching_unformat_functions([1, 2.0, "str"], str)
+    assert isinstance(mock_warning.call_args[0][0], StreamlitAPIWarning)
+    assert repr({int, float, str}) in str(mock_warning.call_args[0][0])
+
+    stqs._warn_on_common_unmatching_unformat_functions([StreamlitAPIException(), StreamlitAPIWarning()], str)
+    assert isinstance(mock_warning.call_args[0][0], StreamlitAPIWarning)
+    assert repr({StreamlitAPIException, StreamlitAPIWarning}) in str(mock_warning.call_args[0][0])
+
+    mock_warning.reset_mock()  # remaining tests should NOT call this
+    stqs._warn_on_common_unmatching_unformat_functions([StreamlitAPIException(), StreamlitAPIWarning()], int)
+    stqs._warn_on_common_unmatching_unformat_functions([1, 2.0, "str"], float)
+    stqs._warn_on_common_unmatching_unformat_functions([1, 2, 3], float)
+    stqs._warn_on_common_unmatching_unformat_functions([1, 2, 3], int)
+    mock_warning.assert_not_called()
