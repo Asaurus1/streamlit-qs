@@ -270,10 +270,22 @@ with st.echo():
     st.markdown(f"[permalink]({stqs.make_query_string()}) (right click to copy)")
 st.divider()
 
+show_docstring(stqs.update_qs_callback)
+st.write("Example:")
+with st.echo():
+    st.button("Update URL with parameters", on_click=stqs.update_qs_callback())
+st.divider()
+
+show_docstring(stqs.add_qs_callback)
+st.write("Example:")
+with st.echo():
+    st.button("Add parameters to URL", on_click=stqs.add_qs_callback())
+st.divider()
+
 show_docstring(stqs.set_qs_callback)
 st.write("Example:")
 with st.echo():
-    st.button("Update URL with parameters", on_click=stqs.set_qs_callback())
+    st.button("Set the URL", on_click=stqs.set_qs_callback())
 st.divider()
 
 show_docstring(stqs.clear_qs_callback)

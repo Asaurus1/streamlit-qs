@@ -419,7 +419,7 @@ def make_query_string(keys: Collection[str] | None = None, regex: Collection[str
 
 
 def set_qs_callback(keys: Collection[str] | None = None, regex: Collection[str | re.Pattern] = ()) -> Callable[[], None]:
-    """Return a callable that REPLACES the browser URL query string with keys-value pairs for the user-defined keys specified.
+    """Return a callable that replaces the browser URL query string with keys-value pairs for the user-defined keys specified.
 
     Usage:
         >>> st.button("Update URL!", on_click=stu.set_qs_callback(["field1", "field2"]))
@@ -429,20 +429,11 @@ def set_qs_callback(keys: Collection[str] | None = None, regex: Collection[str |
         regex (optional, sequence[Pattern]): an optional set of patterns to match with keys as an alternate method of
             specifying which keys to include.
 
-    CAUTION: ----------------
-    This callback returned by this function should ONLY be used inside a button's "on_click" or a form element's
-    "on_change" argument. Due to how it interacts with elements that get data from the query string, calling the
-    callback function at either the top or bottom of your script -- in the "main flow" -- can result either in
-    query strings not working at all or elements that require multiple page refreshes in order to update,
-    which can be frustrating for the user.
 
-    Disregard at your own risk.
-    ------------------------
-
-    Note: This method does NOT guarantee that the URL will return you to this exact session state, as
-    only fields which are watching for a default value from the query string will autopopulate when someone navigates
-    to the URL. When called without arguments, the query string will include values for fields which MAY NOT be watching
-    the query string for values. These will be silently ignored.
+    Note: This method does NOT guarantee that the URL will return you to this exact session state, as only fields
+    which are watching for a default value from the query string will autopopulate when someone navigates to the URL.
+    When called without arguments, the query string will include values for fields which MAY NOT be watching the query
+    string for values. These will be silently ignored.
     """
 
     def _set_qs_callback():
@@ -451,27 +442,18 @@ def set_qs_callback(keys: Collection[str] | None = None, regex: Collection[str |
     return _set_qs_callback
 
 
-def clear_qs_callback(keys: Collection[str] = (), regex: Collection[str | re.Pattern] = ()) -> Callable[[], None]:
-    """Return a callable that clears the query string from the URL. If a specific set of keys or patterns
-    are provided, only those keys will be cleared.
+def clear_qs_callback(keys: Collection[str] | None = None, regex: Collection[str | re.Pattern] = ()) -> Callable[[], None]:
+    """Return a callable that clears the query string from the URL. If a specific set of keys or patterns are provided,
+    only those keys will be cleared. This callback is designed to be used with the "on_click" or "on_change" argument
+    of a button or widget.
 
     This will NOT reset the values of any fields that depend on the query string, you must do that yourself by
     removing the fields' keys from `st.session_state`.
 
     Args:
-        keys (set[str]): The set of keys to be added to the query string.
+        keys (set[str]): The set of keys to be removed to the query string.
         regex (optional, sequence[Pattern]): an optional set of patterns to match with keys as an alternate method of
             specifying which keys to add.
-
-    CAUTION: ----------------
-    This callback returned by this function should ONLY be used inside a button's "on_click" or a form element's
-    "on_change" argument. Due to how it interacts with elements that get data from the query string, calling the
-    callback function at either the top or bottom of your script -- in the "main flow" -- can result either in
-    query strings not working at all or elements that require multiple page refreshes in order to update,
-    which can be frustrating for the user.
-
-    Disregard at your own risk.
-    ------------------------
     """
 
     def _clear_qs_callback():
@@ -486,29 +468,21 @@ def clear_qs_callback(keys: Collection[str] = (), regex: Collection[str | re.Pat
     return _clear_qs_callback
 
 
-def add_qs_callback(keys: Collection[str], regex: Collection[str | re.Pattern] = ()) -> Callable[[], None]:
-    """Return a callable that updates the browser URL with keys-value pairs for the user-defined keys specified.
+def add_qs_callback(keys: Collection[str] | None = None, regex: Collection[str | re.Pattern] = ()) -> Callable[[], None]:
+    """Return a callable that adds to the browser URL the keys-value pairs for the user-defined keys specified.
     Keys with a None value are ignored. Existing key-value pairs in the URL will not be changed or removed
-    (they may be reordered).
+    (they may be reordered). This callback is designed to be used with the "on_click" or "on_change" argument
+    of a button or widget.
 
     Args:
-        keys (set[str]): The set of keys to be added to the query string.
+        keys (optional, set[str]): The set of keys to be added to the query string.
         regex (optional, sequence[Pattern]): an optional set of patterns to match with keys as an alternate method of
             specifying which keys to add.
 
-    CAUTION: ----------------
-    This callback returned by this function should ONLY be used inside a button's "on_click" or a form element's
-    "on_change" argument. Due to how it interacts with elements that get data from the query string, calling the
-    callback function at either the top or bottom of your script -- in the "main flow" -- can result either in
-    query strings not working at all or elements that require multiple page refreshes in order to update,
-    which can be frustrating for the user.
-
-    Disregard at your own risk.
-    ------------------------
-
-    Note: This method does NOT guarantee that the URL will return you to this exact session state, as
-    only fields which are watching for a default value from the query string will autopopulate when someone navigates
-    to the URL.
+    Note: This method does NOT guarantee that the URL will return you to this exact session state, as only fields
+    which are watching for a default value from the query string will autopopulate when someone navigates to the URL.
+    When called without arguments, the query string will include values for fields which MAY NOT be watching the query
+    string for values. These will be silently ignored.
     """
 
     def _add_qs_callback():
@@ -519,29 +493,21 @@ def add_qs_callback(keys: Collection[str], regex: Collection[str | re.Pattern] =
     return _add_qs_callback
 
 
-def update_qs_callback(keys: Collection[str], regex: Collection[str | re.Pattern] = ()) -> Callable[[], None]:
+def update_qs_callback(keys: Collection[str] | None = None, regex: Collection[str | re.Pattern] = ()) -> Callable[[], None]:
     """Return a callable that updates the browser URL with keys-value pairs for the user-defined keys specified.
     Keys which are paired with a None value are *removed* from the query string. Other existing key-value pairs
-    in the URL will not be changed or removed (they may be reordered).
+    in the URL will not be changed or removed (they may be reordered). This callback is designed to be used with
+    the "on_click" or "on_change" argument of a button or widget.
 
     Args:
-        keys (set[str]): The set of keys to be added to the query string.
+        keys (optional, set[str]): The set of keys to be added to the query string.
         regex (optional, sequence[Pattern]): an optional set of patterns to match with keys as an alternate method of
             specifying which keys to add.
 
-    CAUTION: ----------------
-    This callback returned by this function should ONLY be used inside a button's "on_click" or a form element's
-    "on_change" argument. Due to how it interacts with elements that get data from the query string, calling the
-    callback function at either the top or bottom of your script -- in the "main flow" -- can result either in
-    query strings not working at all or elements that require multiple page refreshes in order to update,
-    which can be frustrating for the user.
-
-    Disregard at your own risk.
-    ------------------------
-
-    Note: This method does NOT guarantee that the URL will return you to this exact session state, as
-    only fields which are watching for a default value from the query string will autopopulate when someone navigates
-    to the URL.
+    Note: This method does NOT guarantee that the URL will return you to this exact session state, as only fields
+    which are watching for a default value from the query string will autopopulate when someone navigates to the URL.
+    When called without arguments, the query string will include values for fields which MAY NOT be watching the query
+    string for values. These will be silently ignored.
     """
 
     def _update_qs_callback():

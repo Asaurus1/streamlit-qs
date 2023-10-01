@@ -350,13 +350,17 @@ def test_make_query_string(session_state):
     stqs.make_query_string(["b3"]) == "?b3=hello+world"
 
 
-def test_set_qs_callback(mock_get, mock_set, session_state):
+def test_set_qs_callback(mock_set, session_state):
     session_state.update({"a3": 1, "b3": "hello world", "b2": 3})
 
     func = stqs.set_qs_callback(["a3", "b3"], regex=[])
     mock_set.assert_not_called()
     func()
     mock_set.assert_called_with(a3=1, b3="hello world")
+    mock_set.reset_mock()
+
+    assert stqs.set_qs_callback()() is None
+    mock_set.assert_called_with(a3=1, b3="hello world", b2=3)
     mock_set.reset_mock()
 
 
@@ -368,8 +372,8 @@ def test_add_qs_callback(mock_get, mock_set, session_state):
     mock_set.assert_not_called()
     func()
     mock_set.assert_called_with(a1="hi", b2=3, nonekey="5")
-    func = stqs.add_qs_callback(["nonekey"])
-    func()
+
+    assert stqs.add_qs_callback(["nonekey"])() is None
     mock_set.assert_called_with(a1="hi", b2=3, nonekey="5")
     mock_set.reset_mock()
 
@@ -382,9 +386,13 @@ def test_update_qs_callback(mock_get, mock_set, session_state):
     mock_set.assert_not_called()
     func()
     mock_set.assert_called_with(a1="hi", b2=3, nonekey="5")
-    func = stqs.update_qs_callback(["nonekey"])
-    func()
+
+    assert stqs.update_qs_callback(["nonekey"])() is None
     mock_set.assert_called_with(a1="hi", b2=3)
+    mock_set.reset_mock()
+
+    assert stqs.update_qs_callback()() is None
+    mock_set.assert_called_with(a1="hi", b2=3, b3="hello world", a3=1)
     mock_set.reset_mock()
 
 
@@ -398,8 +406,7 @@ def test_clear_qs_callback(mock_get, mock_set, session_state):
     mock_set.reset_mock()
 
     mock_get.return_value = {"a1": "hi", "b3": "world"}
-    func = stqs.clear_qs_callback(["b3"])
-    func()
+    assert stqs.clear_qs_callback(["b3"])() is None
     mock_set.assert_called_with(a1="hi")
 
 
