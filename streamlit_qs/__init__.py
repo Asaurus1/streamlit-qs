@@ -142,11 +142,8 @@ def multiselect_qs(
     indexible_options = ensure_indexable(options)
     _raise_if_option_is_none(indexible_options, widgettype="multiselect_qs")
 
-    if default is None:
-        default_empty: List[T] = []
-        maybe_from_query = from_query_args(key, default=default_empty, as_list=True, unformat_func=unformat_func)
-    else:
-        maybe_from_query = from_query_args(key, default=_ensure_list(default), as_list=True, unformat_func=unformat_func)
+    default_list: List[T] = [] if default is None else _ensure_list(default)
+    maybe_from_query = from_query_args(key, default=default_list, as_list=True, unformat_func=unformat_func)
     
     ms_default_subset = [item for item in maybe_from_query if item in indexible_options]
         
@@ -156,8 +153,9 @@ def multiselect_qs(
             "Some query string options were not contained in the available options for multiselect "
             f'key = "{key}". Missing values: {[item for item in maybe_from_query if item not in indexible_options]}'
         )
-
-    st.session_state.setdefault(key, ms_default_subset)
+    if maybe_from_query != default_list:
+        # Set session state IF we're not using the default value.
+        st.session_state.setdefault(key, ms_default_subset)
     if autoupdate:
         _wrap_on_change_with_qs_update(key, kwargs, remove_none_values=(default is None))
     return st.multiselect(label, options, default=default, key=key, **kwargs)

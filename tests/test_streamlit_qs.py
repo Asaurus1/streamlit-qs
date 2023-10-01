@@ -135,22 +135,19 @@ def test_multiselect_qs_strings(mock_ms: mock.MagicMock, mock_from_query_args: m
 
     mock_from_query_args.return_value = ["1", "3"]
     stqs.multiselect_qs("Test", options, default=["1", "3"], key="test3")
-    assert session_state["test3"] == ["1", "3"]
+    "test3" not in session_state
     mock_ms.assert_called_with("Test", options, default=["1", "3"], key="test3")
 
     mock_from_query_args.return_value = ["3"]
     stqs.multiselect_qs("Test", options, default="3", key="test4")
-    assert session_state["test4"] == ["3"]
     mock_ms.assert_called_with("Test", options, default="3", key="test4")
 
     mock_from_query_args.return_value = []
     stqs.multiselect_qs("Test", options, key="test5")
-    assert session_state["test5"] == []
     mock_ms.assert_called_with("Test", options, default=None, key="test5")
 
     mock_from_query_args.return_value = []
     _test_helper_autoupdate(stqs.multiselect_qs, "Test", options, key="test6", autoupdate=True)
-    assert session_state["test6"] == []
 
     mock_from_query_args.return_value = ["1", "5", "7"]
     with pytest.raises(ValueError):
@@ -177,12 +174,11 @@ def test_multiselect_qs_nonstring(mock_ms: mock.MagicMock, mock_from_query_args:
 
     mock_from_query_args.return_value = [1, 5]
     stqs.multiselect_qs("Test", options, default=[1, 5], key="test3")
-    assert session_state["test3"] == [1, 5]
+    "test3" not in session_state
     mock_ms.assert_called_with("Test", options, default=[1, 5], key="test3")
 
     mock_from_query_args.return_value = []
     stqs.multiselect_qs("Test", options, key="test4")
-    assert session_state["test4"] == []
     mock_ms.assert_called_with("Test", options, default=None, key="test4")
 
     with pytest.raises(StreamlitAPIException):
