@@ -112,7 +112,7 @@ with st.echo():
 
 Autoupdate works by adding some function calls to the `on_change` callback, but it seamlessly wraps your own
 callbacks as well so that they're still usable.
-This example updates the query string AND creates balloons or snow!
+This example updates the query string AND creates balloons or snow (not in a way which corresponds to what you chose, though 😜)!
 """
 with st.echo():
     stqs.selectbox_qs("Select an option:",

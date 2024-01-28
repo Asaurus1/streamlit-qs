@@ -29,7 +29,6 @@ if TYPE_CHECKING:
     Number = int | float
 
 from streamlit.type_util import OptionSequence, ensure_indexable
-from streamlit.commands import query_params
 from streamlit.errors import StreamlitAPIException, StreamlitAPIWarning
 from typing_extensions import Literal
 
@@ -261,45 +260,6 @@ def number_input_qs(label: str, default = "min", *, key: str, autoupdate: bool =
     return st.number_input(label, value=default, key=key, **kwargs)
 
 
-def get_query_params(keep_blank_values: bool = True) -> Dict[str, List[str]]:
-    """Return the query parameters that is currently showing in the browser's URL bar.
-
-    This is like the streamlit.experimental_get_query_params function but supports returning
-    blank values from the URL. See https://github.com/streamlit/streamlit/issues/7416
-
-    Returns
-    -------
-    dict
-      The current query parameters as a dict. "Query parameters" are the part of the URL that comes
-      after the first "?".
-
-    Example
-    -------
-    Let's say the user's web browser is at
-    `http://localhost:8501/?show_map=True&selected=asia&selected=america`.
-    Then, you can get the query parameters using the following:
-
-    >>> import streamlit as st
-    >>>
-    >>> st.experimental_get_query_params()
-    {"show_map": ["True"], "selected": ["asia", "america"]}
-
-    Note that the values in the returned dict are *always* lists. This is
-    because we internally use Python's urllib.parse.parse_qs(), which behaves
-    this way. And this behavior makes sense when you consider that every item
-    in a query string is potentially a 1-element array.
-
-    """
-    ctx = query_params.get_script_run_ctx()
-    if ctx is None:
-        return {}
-    # Return new query params dict, but without embed, embed_options query params
-    return query_params.util.exclude_key_query_params(
-        query_params.parse.parse_qs(ctx.query_string, keep_blank_values=keep_blank_values),
-        keys_to_exclude=query_params.EMBED_QUERY_PARAMS_KEYS,
-    )
-
-
 @overload
 def from_query_args(key: str, default: str = "", *, as_list: Literal[False] = False, unformat_func: Any = str) -> str:
     ...
@@ -341,10 +301,9 @@ def from_query_args(key, default = "", *, as_list=False, unformat_func: Any = st
     If multiple values are defined for a given key, this code will throw an exception when as_list is False
     and will return all defined values when as_list is true.
     """
-    query_args = get_query_params()
-    values = query_args.get(key, None)
+    values = st.query_params.get_all(key)
 
-    if values is None:
+    if not values:
         # if there's nothing in the query string, give the default
         out_value = default if as_list else [default]
     elif unformat_func is str:
@@ -357,7 +316,7 @@ def from_query_args(key, default = "", *, as_list=False, unformat_func: Any = st
     if as_list:
         return out_value
     elif len(out_value) > 1:
-        raise ValueError(f"Got multiple values for query string key {key}. Query contents: \n\n {query_args}")
+        raise ValueError(f"Got multiple values for query string key {key}. Query contents: \n\n {st.query_params.to_dict()}")
 
     return out_value[0]
 
@@ -435,7 +394,8 @@ def set_qs_callback(keys: Collection[str] | None = None, regex: Collection[str |
     """
 
     def _set_qs_callback():
-        st.experimental_set_query_params(**_qs_intersect(keys, regex))
+        st.query_params.clear()
+        st.query_params.update(_qs_intersect(keys, regex))
 
     return _set_qs_callback
 
@@ -456,12 +416,10 @@ def clear_qs_callback(keys: Collection[str] | None = None, regex: Collection[str
 
     def _clear_qs_callback():
         if not keys and not regex:
-            st.experimental_set_query_params()
+            st.query_params.clear()
         else:
-            existing_dict = get_query_params()
             for key in _qs_intersect(keys, regex).keys():
-                existing_dict.pop(key, None)
-            st.experimental_set_query_params(**existing_dict)
+                st.query_params.pop(key, None)
 
     return _clear_qs_callback
 
@@ -484,9 +442,7 @@ def add_qs_callback(keys: Collection[str] | None = None, regex: Collection[str |
     """
 
     def _add_qs_callback():
-        existing_dict = get_query_params()
-        existing_dict.update(_qs_intersect(keys, regex))
-        st.experimental_set_query_params(**existing_dict)
+        st.query_params.update(_qs_intersect(keys, regex))
 
     return _add_qs_callback
 
@@ -509,14 +465,12 @@ def update_qs_callback(keys: Collection[str] | None = None, regex: Collection[st
     """
 
     def _update_qs_callback():
-        existing_dict = get_query_params()
         new_dict = _qs_intersect(keys, regex, allownone=True)
         for key, value in new_dict.items():
             if value is None:
-                existing_dict.pop(key, None)
+                st.query_params.pop(key, None)
             else:
-                existing_dict[key] = value
-        st.experimental_set_query_params(**existing_dict)
+                st.query_params[key] = value
 
     return _update_qs_callback
 
