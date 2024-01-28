@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     Number = int | float
 
 from streamlit.type_util import OptionSequence, ensure_indexable
+from streamlit.elements.widgets.slider import SliderValue
 from streamlit.errors import StreamlitAPIException, StreamlitAPIWarning
 from typing_extensions import Literal
 
@@ -158,6 +159,45 @@ def multiselect_qs(
     if autoupdate:
         _wrap_on_change_with_qs_update(key, kwargs, remove_none_values=(default is None))
     return st.multiselect(label, options, default=default, key=key, **kwargs)
+
+
+def slider_qs(
+    label: str,
+    default: SliderValue | None,
+    *,
+    key: str,
+    autoupdate: bool = False,
+    **kwargs,
+) -> Any:
+    """Create a streamlit slider widget which automatically populates itself from the URL query string.
+
+    Takes all arguments that st.slider takes, but the "key" keyword argument _must_ be provided. Returns the value
+    selected by the user. "autoupdate" causes that value to also be populated into the URL query string on change.
+
+    Values provided in the query string are expected to be floats which represent values or, in the case of datetime,
+    the number of microseconds since the unix epoch. Support may be added in later version for more human-readable
+    date formats.
+    """
+    indexible_options = ensure_indexable(options)
+    _raise_if_option_is_none(indexible_options, widgettype="multiselect_qs")
+
+
+    maybe_from_query = from_query_args(key, default="", as_list=True)
+
+    ms_default_subset = [item for item in maybe_from_query if item in indexible_options]
+
+    # discard missing items or throw an exception if we got a value from the query string that is not in the options
+    if not discard_missing and ms_default_subset != maybe_from_query:
+        raise ValueError(
+            "Some query string options were not contained in the available options for multiselect "
+            f'key = "{key}". Missing values: {[item for item in maybe_from_query if item not in indexible_options]}'
+        )
+    if maybe_from_query != default_list:
+        # Set session state IF we're not using the default value.
+        st.session_state.setdefault(key, ms_default_subset)
+    if autoupdate:
+        _wrap_on_change_with_qs_update(key, kwargs, remove_none_values=(default is None))
+    return st.slider(label, options, default=default, key=key, **kwargs)
 
 
 def checkbox_qs(label: str, default: bool = False, *, key: str, autoupdate: bool = False, **kwargs) -> bool:
