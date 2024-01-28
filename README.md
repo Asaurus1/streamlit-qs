@@ -6,14 +6,6 @@ This can let users to share links with others that will populate streamlit with 
 that they were using. Or you can use the query string to pass data into your streamlit application from
 another website or program.
 
-> ### A note about the experimental API:
->
-> Query string interaction within Streamlit is currently experimental, and the API is subject to change at any time
-> This library works with v1.23.1 of Streamlit but may not be forward compatible with future versions when the 
-> experimental query string API is either A) removed, B) made standard, or C) modified in some incompatible way.
->
-> Please submit an issue if you encounter compatibility issues with future versions of Streamlit.
-
 
 ## Installation
 
@@ -39,3 +31,8 @@ stqs.text_input_qs("Enter Some Text", key="input_some_text")
 
 For more examples, including :sparkles:**customization options**:sparkles:, see
 [the demo app](https://query-string.streamlit.app/).
+
+
+## Version Compatibility
+For Streamlit v1.29.0 or below use release v0.2.0 of this app
+For Streamlit v1.30.0 or above, use the latest released version of this app above v0.2.0
