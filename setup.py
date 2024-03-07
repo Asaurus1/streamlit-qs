@@ -5,7 +5,7 @@ with open("README.md", "r", encoding='utf8') as fh:
 
 setuptools.setup(
     name="streamlit-qs",
-    version="0.3.0",
+    version="0.3.1",
     author="Alexander Martin",
     author_email="fauxjunk-1@yahoo.com",
     description="A small library to add extra functionality on top of streamlit's st.query_params API",
