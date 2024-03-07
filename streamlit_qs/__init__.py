@@ -466,11 +466,16 @@ def update_qs_callback(keys: Collection[str] | None = None, regex: Collection[st
 
     def _update_qs_callback():
         new_dict = _qs_intersect(keys, regex, allownone=True)
+        update_dict = {}
+        none_keys = []
         for key, value in new_dict.items():
             if value is None:
-                st.query_params.pop(key, None)
+                none_keys.append(key)
             else:
-                st.query_params[key] = value
+                update_dict[key] = value
+        for key in none_keys:
+            st.query_params.pop(key, None)
+        st.query_params.update(update_dict)
 
     return _update_qs_callback
 
