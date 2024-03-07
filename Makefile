@@ -16,11 +16,19 @@ install:
 	pip install -r requirements.txt
 	pip install .
 
+.PHONY: check
+# Run all code checkers
+check: test typecheck
+
 .PHONY: test
 # Run unit tests
 test:
 	pytest tests/
-	mypy streamlit_qs/ example.py tests/ --check-untyped-defs
+
+.PHONY: typecheck
+# Run typechecking
+typecheck:
+	mypy streamlit_qs/ example.py tests/ --check-untyped-defs --install-types
 
 .PHONY: clean
 # Remove temporary files
