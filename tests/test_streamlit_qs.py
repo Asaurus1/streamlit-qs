@@ -4,6 +4,7 @@ import unittest.mock as mock
 
 import pytest
 import streamlit as st
+from streamlit.runtime.state.query_params import QueryParams
 from streamlit.errors import StreamlitAPIException, StreamlitAPIWarning
 
 import streamlit_qs as stqs
@@ -15,25 +16,19 @@ def session_state():
         yield ss
 
 @pytest.fixture
-def mock_qp():
-    with mock.patch("streamlit.query_params", spec=st.query_params) as mock_qp:
-        mock_qp.__mock_dict = {}
-        mock_qp.get_all = lambda key: mock_qp.__mock_dict.get(key, [])
-        yield mock_qp
+def qp():
+    # Replace the Proxy "query_params" with the underlying object
+    with mock.patch("streamlit.query_params", new=QueryParams({})) as qp:
+        yield qp
 
 @pytest.fixture
-def mock_pop(mock_qp):
-    return mock_qp.pop
-
-
-@pytest.fixture
-def mock_update(mock_qp):
-    return mock_qp.update
-
-
-@pytest.fixture
-def mock_setitem(mock_qp):
-    return mock_qp.__setitem__
+def streamlit_1_33(qp):
+    QueryParams._from_dict = QueryParams.from_dict  # type: ignore[attr-defined]
+    del QueryParams.from_dict
+    try:
+        yield
+    finally:
+        QueryParams.from_dict = QueryParams._from_dict  # type: ignore[method-assign, attr-defined]
 
 
 @pytest.fixture
@@ -48,8 +43,8 @@ def mock_query_args_index():
         yield mock_from_query_args_index
 
 
-def test_from_query_args_str(mock_qp: mock.MagicMock):
-    mock_qp.__mock_dict = {"a": ["1"], "b": ["2"], "c": ["3", "4"]}
+def test_from_query_args_str(qp: QueryParams):
+    qp._query_params = {"a": ["1"], "b": ["2"], "c": ["3", "4"]}
     deflist = ["default"]
     stqs.from_query_args("a") == "1"
     stqs.from_query_args("b", "default") == "2"
@@ -62,8 +57,8 @@ def test_from_query_args_str(mock_qp: mock.MagicMock):
         stqs.from_query_args("c", "5") != ["3", "4"]  # type: ignore
 
 
-def test_from_query_args_nonstr(mock_qp: mock.MagicMock):
-    mock_qp.__mock_dict = {"a": ["1"], "b": ["2"], "c": ["3", "4"]}
+def test_from_query_args_nonstr(qp: QueryParams):
+    qp._query_params = {"a": ["1"], "b": ["2"], "c": ["3", "4"]}
     stqs.from_query_args("a", unformat_func=int) == 1
     stqs.from_query_args("b", "default", unformat_func=int) == 2
     stqs.from_query_args("c", [5], as_list=True, unformat_func=int) == [3, 4]
@@ -353,87 +348,83 @@ def test_make_query_string(session_state):
     stqs.make_query_string(["b3"]) == "?b3=hello+world"
 
 
-def test_set_qs_callback(mock_update, session_state):
+def test_set_qs_callback(qp: QueryParams, session_state):
     session_state.update({"a3": 1, "b3": "hello world", "b2": 3})
 
     func = stqs.set_qs_callback(["a3", "b3"], regex=[])
-    mock_update.assert_not_called()
+    assert qp._query_params == {}
     func()
-    mock_update.assert_called_with(dict(a3=1, b3="hello world"))
-    mock_update.reset_mock()
+    assert qp._query_params == dict(a3="1", b3="hello world")
 
     assert stqs.set_qs_callback()() is None
-    mock_update.assert_called_with(dict(a3=1, b3="hello world", b2=3))
-    mock_update.reset_mock()
+    assert qp._query_params == dict(a3="1", b3="hello world", b2="3")
 
 
-def test_add_qs_callback(mock_qp, mock_update, session_state):
+def test_add_qs_callback(qp: QueryParams, session_state):
     session_state.update({"a3": 1, "b3": "hello world", "b2": 3, "nonekey": None})
 
-    mock_qp.__mock_dict = {"a1": "hi", "nonekey": "5"}
+    qp._query_params = {"a1": "hi", "nonekey": "5"}
     func = stqs.add_qs_callback(["b2"], regex=[])
-    mock_update.assert_not_called()
+    assert qp._query_params == {"a1": "hi", "nonekey": "5"}
     func()
-    mock_update.assert_called_with(dict(b2=3))
+    assert qp._query_params == {"a1": "hi", "nonekey": "5", "b2": "3"}
 
     assert stqs.add_qs_callback(["nonekey"])() is None
-    mock_update.assert_called_with(dict())
-    mock_update.reset_mock()
+    assert qp._query_params == {"a1": "hi", "nonekey": "5", "b2": "3"}
 
 
-def test_update_qs_callback(mock_qp, mock_setitem, session_state):
+def test_update_qs_callback(qp: QueryParams, session_state):
     session_state.update({"a3": 1, "b3": "hello world", "b2": 3, "nonekey": None})
 
-    mock_qp.__mock_dict = {"a1": "hi", "nonekey": "5"}
+    qp._query_params = {"a1": "hi", "nonekey": "5"}
     func = stqs.update_qs_callback(["b2"], regex=[])
-    mock_setitem.assert_not_called()
+    assert qp._query_params == {"a1": "hi", "nonekey": "5"}
     func()
-    mock_setitem.has_calls(
-        mock.call("a1", "hi"),
-        mock.call("b2", 3),
-        mock.call("nonekey", 5)
-    )
-    mock_setitem.reset_mock()
+    assert qp._query_params == {"a1": ["hi"], "b2": "3", "nonekey": ["5"]}
 
     assert stqs.update_qs_callback(["nonekey"])() is None
-    mock_setitem.has_calls(
-        mock.call("a1", "hi"),
-        mock.call("b2", 3),
-    )
-    mock_setitem.reset_mock()
+    assert qp._query_params == {"a1": ["hi"], "b2": ["3"]}
 
     assert stqs.update_qs_callback()() is None
-    mock_setitem.has_calls(
-        mock.call("a1", "hi"),
-        mock.call("b2", 3),
-        mock.call("b3", "hello world"),
-        mock.call("a3", 1),
-    )
-    mock_setitem.reset_mock()
+    assert qp._query_params == {"a1": ["hi"], "b3": "hello world", "b2": "3", "a3": "1"}
 
 
-def test_clear_qs_callback(mock_qp, session_state):
+def test_clear_qs_callback_legacy(qp: QueryParams, streamlit_1_33, session_state):
     session_state.update({"a3": 1, "b3": "hello world", "b2": 3, "nonekey": None})
 
+    qp._query_params = {"oldkey": "value"}
     func = stqs.clear_qs_callback()
-    mock_qp.clear.assert_not_called()
+    assert qp._query_params == {"oldkey": "value"}
     func()
-    mock_qp.clear.assert_called_once()
+    assert qp._query_params == {}
 
-    mock_qp.__mock_dict = {"a1": "hi", "b3": "world"}
+    qp._query_params = {"a1": "hi", "b3": "world"}
     assert stqs.clear_qs_callback(["b3"])() is None
-    mock_qp.pop.assert_called_with("b3", None)
+    assert qp._query_params == {"a1": "hi"}
 
 
-def test_wrap_on_chage_with_qs_update(mock_qp, mock_setitem, mock_pop, mock_update, session_state):
+def test_clear_qs_callback_optimized(qp: QueryParams, session_state):
+    session_state.update({"a3": 1, "b3": "hello world", "b2": 3, "nonekey": None})
+
+    qp._query_params = {"oldkey": "value"}
+    func = stqs.clear_qs_callback()
+    assert qp._query_params == {"oldkey": "value"}
+    func()
+    assert qp._query_params == {}
+
+    qp._query_params = {"a1": "hi", "b3": "world"}
+    assert stqs.clear_qs_callback(["b3"])() is None
+    assert qp._query_params == {"a1": ["hi"]}
+
+
+def test_wrap_on_chage_with_qs_update(qp: QueryParams, session_state):
     kwargs: Any = {"foo": "a", "bar": "b", "none": None}
     stqs._wrap_on_change_with_qs_update("key", kwargs, remove_none_values=False)
     assert callable(kwargs["on_change"])
     assert kwargs["on_change"].__name__ == "_add_qs_callback"
-    mock_update.assert_not_called()
-    mock_qp.__mock_dict = {"key": "hi"}
+    qp._query_params = {"key": "hi"}
     kwargs["on_change"]()
-    mock_update.assert_called_with(dict())
+    assert qp._query_params == {"key": "hi"}
 
     callback = mock.MagicMock(__name__="mockfunction")
     kwargs = {"foo": "a", "bar": "b", "on_change": callback}
@@ -442,13 +433,11 @@ def test_wrap_on_chage_with_qs_update(mock_qp, mock_setitem, mock_pop, mock_upda
     assert kwargs["on_change"].__name__ == "mockfunction"
     assert kwargs["on_change"] is not callback
     callback.assert_not_called()
-    mock_pop.assert_not_called()
-    mock_qp.__mock_dict = {"key": "a", "foobar": "b"}
+    qp._query_params = {"key": "a", "foobar": "b"}
     session_state["key"] = None
     kwargs["on_change"]()
     callback.assert_called()
-    mock_pop.assert_called_with("key", None)
-    mock_pop.reset_mock()
+    assert qp._query_params == {"foobar": ["b"]}
 
     kwargs = {"foo": "a", "bar": "b", "on_change": 1}
     with pytest.raises(TypeError, match="keyword argument is not callable"):

@@ -142,9 +142,9 @@ def multiselect_qs(
 
     default_list: List[T] = [] if default is None else _ensure_list(default)
     maybe_from_query = from_query_args(key, default=default_list, as_list=True, unformat_func=unformat_func)
-    
+
     ms_default_subset = [item for item in maybe_from_query if item in indexible_options]
-        
+
     # discard missing items or throw an exception if we got a value from the query string that is not in the options
     if not discard_missing and ms_default_subset != maybe_from_query:
         raise ValueError(
@@ -283,7 +283,7 @@ def from_query_args(key: str, default: List[None], *, as_list: Literal[True], un
     # actually returns a List[Optional[str]] but mypy won't let us do that until
     # https://github.com/python/mypy/pull/15846 is released in 1.5.2
     ...
-    
+
 @overload
 def from_query_args(key: str, default: List[T], *, as_list: Literal[True], unformat_func: Any) -> List[T]:
     ...
@@ -413,12 +413,22 @@ def clear_qs_callback(keys: Collection[str] | None = None, regex: Collection[str
             specifying which keys to add.
     """
 
-    def _clear_qs_callback():
-        if not keys and not regex:
-            st.query_params.clear()
-        else:
-            for key in _qs_intersect(keys, regex).keys():
-                st.query_params.pop(key, None)
+    if hasattr(st.query_params, "from_dict"):
+        # Streamlit 1.34.0
+        def _clear_qs_callback():
+            if not keys and not regex:
+                st.query_params.clear()
+            else:
+                clear_dict = {k: st.query_params.get_all(k) for k in st.query_params if k not in _qs_intersect(keys, regex)}
+                st.query_params.from_dict(clear_dict)
+    else:
+        # Streamlit 1.33 and earlier (less efficient)
+        def _clear_qs_callback():
+            if not keys and not regex:
+                st.query_params.clear()
+            else:
+                for key in _qs_intersect(keys, regex).keys():
+                    st.query_params.pop(key, None)
 
     return _clear_qs_callback
 
@@ -463,20 +473,32 @@ def update_qs_callback(keys: Collection[str] | None = None, regex: Collection[st
     string for values. These will be silently ignored.
     """
 
-    def _update_qs_callback():
-        new_dict = _qs_intersect(keys, regex, allownone=True)
-        update_dict = {}
-        none_keys = []
-        for key, value in new_dict.items():
-            if value is None:
-                none_keys.append(key)
-            else:
-                update_dict[key] = value
-        for key in none_keys:
-            st.query_params.pop(key, None)
-        st.query_params.update(update_dict)
+    if hasattr(st.query_params, "from_dict"):
+        # Streamlit 1.34.0
+        def _update_qs_callback():
+            new_dict = _qs_intersect(keys, regex, allownone=True)
+            update_dict = {k: st.query_params.get_all(k) for k in st.query_params}
+            for key, value in new_dict.items():
+                if value is not None:
+                    update_dict[key] = value
+                elif key in update_dict:
+                    del update_dict[key]
+            st.query_params.from_dict(update_dict)  # type: ignore  # doesn't accept a list[str] right now
+    else:
+        # Streamlit 1.33 and earlier (less efficient)
+        def _update_qs_callback():
+            new_dict = _qs_intersect(keys, regex, allownone=True)
+            update_dict = {}
+            for key, value in new_dict.items():
+                if value is not None:
+                    update_dict[key] = value
+                elif key in update_dict:
+                    st.query_params.pop(key)
+            st.query_params.update(update_dict)
 
     return _update_qs_callback
+
+
 
 def unenumifier(cls: Type[Tenum]) -> Callable[[str], Tenum] :
     """Get a factory function for turning strings into enum members.
