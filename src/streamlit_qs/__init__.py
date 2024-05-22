@@ -5,31 +5,15 @@ from enum import Enum
 import functools
 import re
 import urllib.parse
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Callable,
-    Collection,
-    KeysView,
-    List,
-    Mapping,
-    MutableMapping,
-    Sequence,
-    Set,
-    Type,
-    TypeVar,
-    cast,
-    overload,
-)
+from typing import TYPE_CHECKING, Any, Callable, Collection, KeysView, List, Mapping, MutableMapping, Sequence, Set, Type, TypeVar, cast, overload
+from typing_extensions import Literal
 
 import streamlit as st
+from streamlit.errors import StreamlitAPIException, StreamlitAPIWarning
+from streamlit.type_util import OptionSequence, ensure_indexable
 
 if TYPE_CHECKING:
     Number = int | float
-
-from streamlit.type_util import OptionSequence, ensure_indexable
-from streamlit.errors import StreamlitAPIException, StreamlitAPIWarning
-from typing_extensions import Literal
 
 
 # TypeVars
@@ -314,7 +298,7 @@ def from_query_args(key, default = "", *, as_list=False, unformat_func: Any = st
 
     if as_list:
         return out_value
-    elif len(out_value) > 1:
+    if len(out_value) > 1:
         raise ValueError(f"Got multiple values for query string key {key}. Query contents: \n\n {st.query_params.to_dict()}")
 
     return out_value[0]
@@ -556,7 +540,7 @@ def _wrap_on_change_with_qs_update(key: str, kwargs: MutableMapping, remove_none
     if existing_callback is None:
         kwargs["on_change"] = pre_update_func
         return
-    elif not callable(existing_callback):
+    if not callable(existing_callback):
         raise TypeError(f"'on_change' keyword argument is not callable: {existing_callback}")
 
     # Otherwise decorate the existing function with an update to the query params beforehand
@@ -573,7 +557,7 @@ def _convert_bool_checkbox(string_bool: str, default: bool) -> bool:
     """Convert from string values to boolean values, with a default value if conversion fails."""
     if string_bool.lower() in ("1", "true"):
         return True
-    elif string_bool.lower() in ("0", "false"):
+    if string_bool.lower() in ("0", "false"):
         return False
     return default
 
@@ -594,10 +578,9 @@ def _ensure_list(maybe_list):
     """Convert single values and sequences (except bytes and str) to lists."""
     if isinstance(maybe_list, list):
         return maybe_list
-    elif isinstance(maybe_list, (bytes, str)) or not isinstance(maybe_list, Sequence):
+    if isinstance(maybe_list, (bytes, str)) or not isinstance(maybe_list, Sequence):
         return [maybe_list]
-    else:
-        return list(maybe_list)
+    return list(maybe_list)
 
 
 def _infer_common_unformat_funcs(indexible_options: Sequence[Any], unformat_func):
@@ -645,6 +628,7 @@ And then call
     st.selectbox_qs("Pick a number", options=[1, 1.5, 2], key="pickanumber", unformat_func=int_or_float)
 
     """
+        # pylint: disable=protected-access
         st.exception(StreamlitAPIWarning(msg))
         st._logger.get_logger(__name__).warning(msg, stack_info=True, stacklevel=5)
 
