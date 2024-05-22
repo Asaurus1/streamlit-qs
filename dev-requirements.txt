@@ -1,3 +1,0 @@
-twine
-pytest
-mypy>=1.5.2  # TODO: >=1.5.2 once it is released

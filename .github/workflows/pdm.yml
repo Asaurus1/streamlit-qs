@@ -1,0 +1,63 @@
+name: PDM CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    env:
+      PDM_IGNORE_SAVED_PYTHON: 1
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup PDM
+        uses: pdm-project/setup-pdm@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pdm install -d
+
+      - name: Lint
+        run: pdm run lint
+
+  python-minversion:
+    runs-on: ubuntu-latest
+    env:
+      PDM_IGNORE_SAVED_PYTHON: 1
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup PDM
+        uses: pdm-project/setup-pdm@v4
+        with:
+          python-version: "3.8"
+
+      - name: Install dependencies
+        run: pdm install -d
+
+      - name: Test
+        run: pdm run test
+
+  python-maxversion:
+    runs-on: ubuntu-latest
+    env:
+      PDM_IGNORE_SAVED_PYTHON: 1
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup PDM
+        uses: pdm-project/setup-pdm@v4
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pdm install -d
+
+      - name: Run tests
+        run: pdm run test

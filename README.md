@@ -1,6 +1,6 @@
 # QueryParams Widgets for Streamlit
 
-[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/asaurus1/streamlit-qs/makefile.yml)](https://github.com/Asaurus1/streamlit-qs/actions)
+[![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/asaurus1/streamlit-qs/pdm.yml)](https://github.com/Asaurus1/streamlit-qs/actions)
 [![GitHub last commit](https://img.shields.io/github/last-commit/asaurus1/streamlit-qs)](https://github.com/Asaurus1/streamlit-qs)
 [![PyPI - Version](https://img.shields.io/pypi/v/streamlit-qs)](https://pypi.org/project/streamlit-qs/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/streamlit-qs)
@@ -9,6 +9,7 @@
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/streamlit-qs)
 [![Licence](https://img.shields.io/badge/licence-Apache%202.0-blue)](https://www.apache.org/licenses/LICENSE-2.0)
 [![Streamlit Version](https://img.shields.io/badge/Streamlit->=1.30.0-blue)](https://github.com/streamlit/streamlit)
+[![pdm-managed](https://img.shields.io/badge/pdm-managed-blueviolet)](https://pdm-project.org)
 
 The functions in this library allow you to easily create "permalink-like" functionality in your application,
 This can let users to share links with others that will populate streamlit with the same set of input values

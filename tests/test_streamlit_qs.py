@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import Any, Dict
+from typing import Any
 import unittest.mock as mock
 
 import pytest

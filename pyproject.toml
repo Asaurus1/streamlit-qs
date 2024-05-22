@@ -1,0 +1,76 @@
+[project]
+name = "streamlit-qs"
+version = "0.3.3"
+description = "A small library to add extra functionality on top of streamlit's st.query_params API"
+authors = [{ name = "Alexander Martin", email = "fauxjunk-1@yahoo.com" }]
+dependencies = ["streamlit>=1.30.0"]
+requires-python = "!=3.9.7,>=3.8"
+readme = "README.md"
+license = { file = "LICENCE" }
+keywords = [
+    "streamlit",
+    "query",
+    "url",
+    "query_params",
+    "widgets",
+    "extension",
+    "community",
+    "permalink",
+    "state",
+    "save",
+    "data",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Environment :: Web Environment",
+    "Intended Audience :: Information Technology",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "Natural Language :: English",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+]
+
+[project.urls]
+Homepage = "https://query-string.streamlit.app/"
+Repository = "https://github.com/Asaurus1/streamlit-qs"
+Issues = "https://github.com/Asaurus1/streamlit-qs/issues"
+
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-data]
+pkgname = ["py.typed"]
+
+[tool.pdm]
+distribution = true
+
+[tool.pdm.resolution]
+excludes = ["numpy", "pandas"]
+
+[tool.pdm.dev-dependencies]
+dev = ["pytest", "mypy>=1.5.2", "pylint>=3.1.0"]
+
+[tool.pdm.scripts]
+mypy = "mypy --install-types --non-interactive src/streamlit_qs"
+test = "pytest"
+pylint = "pylint src/streamlit_qs"
+lint = { composite = ["pylint", "mypy"] }
+check = { composite = ["test", "lint"] }
+example = "streamlit run example.py"
+freeze = "pdm export --editable-self --no-hashes -o requirements.txt"
+
+[tool.pylint]
+max-line-length = 160
+disable = [
+    "E0001",
+    "R1735",
+    "R0913",
+    "W0707",
+    "W0511",
+    "C0325",
+]
