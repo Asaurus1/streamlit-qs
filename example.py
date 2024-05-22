@@ -8,7 +8,7 @@ import streamlit_qs as stqs
 """
 # Streamlit QueryString
 
-This app shows off the [Query String Utility Functions](https://github.com/Asaurus1/streamlit-qs) for
+This app shows off the [QueryParams Widgets](https://github.com/Asaurus1/streamlit-qs) for
 Streamlit.
 
 If you want to try this at home, you'll first need to install it:
@@ -17,26 +17,12 @@ If you want to try this at home, you'll first need to install it:
 pip install streamlit-qs
 ```
 
-The functions in this library allow you to easily create "permalink-like" functionality in your application,
+This extension library allow you to easily create "permalink-like" functionality in your application,
 This can let users to share links with others that will populate streamlit with the same set of input values
 that they were using. Or you can use the query string to pass data into your streamlit application from
 another website or program. The only thing that's realy different about the streamlit_qs widgets is that
 you *must* always give them a unique `key=` argument, which is used to encode and decode the value of the
 widget in the browser URL.
-
-"""
-with st.expander("A note about the experimental API"):
-    st.info(
-        "Query string interaction within Streamlit is currently experimental, "
-        "and the API is subject to change at any time. This library works with "
-        "v1.23.1 of Streamlit but may not be forward compatible with future versions "
-        "when the experimental query string API is either A) removed, B) made standard, "
-        "or C) modified in some incompatible way\n\n"
-        "Please submit an issue if you encounter compatibility issues with future "
-        "versions of Streamlit."
-    )
-
-"""
 
 ## The Basics
 
@@ -45,7 +31,7 @@ with st.expander("A note about the experimental API"):
 `text_input_qs` is a text input box that can read its initial/default value from the query string.
 
 The only major difference between these qs elements and the standard streamlit elements is that
-the qs elements *require* a `key` as a keyword argument.
+the `..._qs elements` *require* a `key` keyword argument.
 
 """
 with st.echo():
@@ -110,9 +96,8 @@ with st.echo():
 """
 #### Callbacks
 
-Autoupdate works by adding some function calls to the `on_change` callback, but it seamlessly wraps your own
-callbacks as well so that they're still usable.
-This example updates the query string AND creates balloons or snow (not in a way which corresponds to what you chose, though 😜)!
+Autoupdate seamlessly wraps your own callbacks so that they're still usable.
+This example updates the query string AND creates balloons or snow, randomly!
 """
 with st.echo():
     stqs.selectbox_qs("Select an option:",
@@ -132,8 +117,8 @@ with st.echo():
 ### Permalinks
 
 Create your own permalinks using markdown or HTML with the `make_query_string` function.
-By default the permalink generates a query string pair for every user element on the page,
-even those that aren't qs elements.
+By default the permalink generates a key-value pair in the URL for every value in `st.session_state`
+even those that aren't `_qs` elements.
 """
 with st.echo():
     permalink = stqs.make_query_string() + "#permalinks"
