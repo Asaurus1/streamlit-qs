@@ -3,6 +3,7 @@ from __future__ import annotations
 from enum import Enum
 
 import functools
+import json
 import re
 import urllib.parse
 from typing import TYPE_CHECKING, Any, Callable, Collection, KeysView, List, Mapping, MutableMapping, Sequence, Set, Type, TypeVar, cast, overload
@@ -14,6 +15,7 @@ from streamlit.type_util import OptionSequence, ensure_indexable
 
 if TYPE_CHECKING:
     Number = int | float
+    from streamlit.elements.widgets.slider import SliderValue
 
 
 # TypeVars
