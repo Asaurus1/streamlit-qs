@@ -211,6 +211,32 @@ def test_checkbox_qs(mock_from_query_args: mock.MagicMock, session_state):
     with pytest.raises(TypeError):
         # can't call without key
         stqs.selectbox_qs("Test", [1, 2])  # type: ignore
+        
+        
+def test_toggle_qs(mock_from_query_args: mock.MagicMock, session_state):
+    for val in ("1", "True", "tRue", "TRUE"):
+        mock_from_query_args.return_value = stqs._convert_bool_checkbox(val, False)
+        stqs.toggle_qs("Test", key="test")
+        assert session_state["test"] is True
+    for val in ("0", "FALSE", "False", "false"):
+        mock_from_query_args.return_value = stqs._convert_bool_checkbox(val, False)
+        stqs.toggle_qs("Test", key="test2")
+        assert session_state["test2"] is False
+
+    mock_from_query_args.return_value = stqs._convert_bool_checkbox("TROO", True)
+    stqs.toggle_qs("Test", key="test3", default=True)
+    assert session_state["test3"] is True
+    mock_from_query_args.return_value = stqs._convert_bool_checkbox("TROO", False)
+    stqs.toggle_qs("Test", key="test4", default=False)
+    assert session_state["test4"] is False
+    
+    mock_from_query_args.return_value = False
+    _test_helper_autoupdate(stqs.toggle_qs, "Test", key="test5", autoupdate=True)
+    assert session_state["test5"] is False
+
+    with pytest.raises(TypeError):
+        # can't call without key
+        stqs.toggle_qs("Test", [1, 2])  # type: ignore
 
 
 def test_text_input_qs(mock_from_query_args: mock.MagicMock, session_state):

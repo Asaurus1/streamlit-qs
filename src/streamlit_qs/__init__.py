@@ -146,7 +146,7 @@ def multiselect_qs(
 def checkbox_qs(label: str, default: bool = False, *, key: str, autoupdate: bool = False, **kwargs) -> bool:
     """Create a streamlit checkbox widget which automatically populates itself from the URL query string.
 
-    Takes all arguments that st.radio takes, but the "key" keyword argument _must_ be provided.
+    Takes all arguments that st.checkbox takes, but the "key" keyword argument _must_ be provided.
     The following values will be treated as True: "true", "1" (case insensitive)
     The following values will be treated as False: "false", "0" (case insensitive)
     Any other value will result in the checkbox using the "default" value.
@@ -158,6 +158,23 @@ def checkbox_qs(label: str, default: bool = False, *, key: str, autoupdate: bool
     if autoupdate:
         _wrap_on_change_with_qs_update(key, kwargs, remove_none_values=(default is None))
     return st.checkbox(label, value=default, key=key, **kwargs)
+
+
+def toggle_qs(label: str, default: bool = False, *, key: str, autoupdate: bool = False, **kwargs) -> bool:
+    """Create a streamlit toggle widget which automatically populates itself from the URL query string.
+
+    Takes all arguments that st.toggle takes, but the "key" keyword argument _must_ be provided.
+    The following values will be treated as True: "true", "1" (case insensitive)
+    The following values will be treated as False: "false", "0" (case insensitive)
+    Any other value will result in the toggle using the "default" value.
+
+    "autoupdate" causes that value to also be populated into the URL query string on change.
+    """
+    query_bool = from_query_args(key, default=default, unformat_func=lambda val: _convert_bool_checkbox(val, default=default))
+    st.session_state.setdefault(key, query_bool)
+    if autoupdate:
+        _wrap_on_change_with_qs_update(key, kwargs, remove_none_values=(default is None))
+    return st.toggle(label, value=default, key=key, **kwargs)
 
 
 @overload
