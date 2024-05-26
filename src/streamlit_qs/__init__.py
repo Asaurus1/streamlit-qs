@@ -66,6 +66,7 @@ def selectbox_qs(
     """
     indexible_options = ensure_indexable(options)
     _raise_if_option_is_none(indexible_options, widgettype="selectbox_qs")
+    unformat_func = _infer_common_unformat_funcs(indexible_options, unformat_func)
 
     query_index = from_query_args_index(key, options, default=index, unformat_func=unformat_func)
     if query_index is not None and key not in st.session_state:
@@ -93,6 +94,7 @@ def radio_qs(
     """
     indexible_options = ensure_indexable(options)
     _raise_if_option_is_none(indexible_options, widgettype="radio_qs")
+    unformat_func = _infer_common_unformat_funcs(indexible_options, unformat_func)
 
     query_index=from_query_args_index(key, options, default=index, unformat_func=unformat_func)
     if query_index is not None and key not in st.session_state:
@@ -143,6 +145,71 @@ def multiselect_qs(
     if autoupdate:
         _wrap_on_change_with_qs_update(key, kwargs, remove_none_values=(default is None))
     return st.multiselect(label, options, default=default, key=key, **kwargs)
+
+
+def select_slider_qs(
+    label: str,
+    options: OptionSequence[T],
+    default: Sequence[T] | T | None = None,
+    *,
+    key: str,
+    unformat_func: Any = str,
+    autoupdate: bool = False,
+    **kwargs,
+) -> Any:
+    """Create a streamlit select_slider widget which automatically populates itself from the URL query string.
+
+    Takes all arguments that st.select_slider takes, but the "key" keyword argument _must_ be provided. Returns the values
+    selected by the user. "autoupdate" causes those values to also be populated into the URL query string on change.
+
+    Values are stored in the URL as an encoded JSON list
+    """
+    indexible_options = ensure_indexable(options)
+    _raise_if_option_is_none(indexible_options, widgettype="select_slider_qs")
+    unformat_func = _infer_common_unformat_funcs(indexible_options, unformat_func)
+
+    maybe_from_query = from_query_args(key, default=default, as_list=True, unformat_func=unformat_func)
+
+    # Here we check whether we _expect_ the slider to be a range-select or a single-value-select,
+    # and ensure that the query_params arguments match.
+    if len(maybe_from_query) == 1:
+        if isinstance(default, (list, tuple)):
+            # maybe_from_query has too few values (invalid), go with the default instead
+            maybe_value = default
+        else:
+            maybe_value = maybe_from_query[0]
+    else:
+        if isinstance(default, (list, tuple)):
+            maybe_value = maybe_from_query
+        else:
+            # maybe_from_query has too many values (invalid), go with the default instead
+            maybe_value = default
+
+    if autoupdate:
+        _wrap_on_change_with_qs_update(key, kwargs, remove_none_values=(default is None))
+    return st.select_slider(label, options, value=maybe_value, key=key, **kwargs)
+
+
+# def slider_qs(
+#     label: str,
+#     default: Sequence[T] | T | None = None,
+#     *,
+#     key: str,
+#     discard_missing: bool = True,
+#     unformat_func: Any = str,
+#     autoupdate: bool = False,
+#     **kwargs,
+# ) -> Any:
+#     """Create a streamlit slider widget which automatically populates itself from the URL query string.
+
+#     Takes all arguments that st.slider takes, but the "key" keyword argument _must_ be provided. Returns the values
+#     selected by the user. "autoupdate" causes those values to also be populated into the URL query string on change.
+
+#     Values provided in the query string are expected to be floats which represent values or, in the case of datetime,
+#     the number of microseconds since the unix epoch. Support may be added in later version for more human-readable
+#     date formats.
+#     """
+
 
 
 def checkbox_qs(label: str, default: bool = False, *, key: str, autoupdate: bool = False, **kwargs) -> bool:
@@ -318,7 +385,7 @@ def from_query_args(key, default = "", *, as_list=False, unformat_func: Any = st
     if as_list:
         return out_value
     if len(out_value) > 1:
-        raise ValueError(f"Got multiple values for query string key {key}. Query contents: \n\n {st.query_params.to_dict()}")
+        raise ValueError(f"Got multiple values for query string key {key}. Query contents: \n\n {values}")
 
     return out_value[0]
 
@@ -340,7 +407,6 @@ def from_query_args_index(key: str, options: OptionSequence[T], default: int | N
     >>> st.selectbox("my box", [1, 2, 3], stu.from_query_args_index("myoption", [1, 2, 3]))
     """
     indexible_options = ensure_indexable(options)
-    unformat_func = _infer_common_unformat_funcs(indexible_options, unformat_func)
     try:
         return indexible_options.index(from_query_args(key, as_list=False, unformat_func=unformat_func))
     except ValueError:
@@ -665,3 +731,10 @@ please pass None as the 'default' argument instead of adding to the 'options' li
 Got the following options: {indexible_options}
         """
         raise StreamlitAPIException(msg)
+
+
+def _as_json_array(json_in: str, default = tuple()):
+    try:
+        return json.loads(json_in)
+    except Exception:
+        return default
